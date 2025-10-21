@@ -1,5 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
+import { useIdleTimeout } from './hooks/useIdleTimeout';
+import { TimeoutWarningDialog } from './components/shared/TimeoutWarningDialog';
+import { LandingPage } from './components/Landing/LandingPage';
 import { Login } from './components/Auth/Login';
 import { Register } from './components/Auth/Register';
 import { Dashboard } from './components/Dashboard/Dashboard';
@@ -8,15 +12,66 @@ import { StockPortfolio } from './components/Stocks/StockPortfolio';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+  const logout = useAuthStore((state) => state.logout);
+  const navigate = useNavigate();
+  const [showWarning, setShowWarning] = useState(false);
+
+  // Auto logout after 5 minutes of inactivity with 30-second warning
+  useIdleTimeout({
+    onWarning: () => {
+      setShowWarning(true);
+    },
+    onIdle: () => {
+      logout();
+      navigate('/login');
+    },
+    idleTime: 5 * 60 * 1000, // 5 minutes
+    warningTime: 30 * 1000, // 30 seconds before timeout
+  });
+
+  const handleContinueSession = () => {
+    setShowWarning(false);
+    // User activity will reset the timer automatically
+  };
+
+  return isAuthenticated ? (
+    <>
+      {children}
+      <TimeoutWarningDialog
+        isOpen={showWarning}
+        onContinue={handleContinueSession}
+        countdownSeconds={30}
+      />
+    </>
+  ) : (
+    <Navigate to="/login" />
+  );
+}
+
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  return isAuthenticated ? <Navigate to="/dashboard" /> : <>{children}</>;
 }
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/" element={
+          <PublicRoute>
+            <LandingPage />
+          </PublicRoute>
+        } />
+        <Route path="/login" element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        } />
+        <Route path="/register" element={
+          <PublicRoute>
+            <Register />
+          </PublicRoute>
+        } />
         <Route
           path="/dashboard"
           element={
@@ -41,7 +96,6 @@ function App() {
             </PrivateRoute>
           }
         />
-        <Route path="/" element={<Navigate to="/dashboard" />} />
       </Routes>
     </Router>
   );
