@@ -23,7 +23,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     },
     onIdle: () => {
       logout();
-      navigate('/login');
+      navigate('/');
     },
     idleTime: 5 * 60 * 1000, // 5 minutes
     warningTime: 30 * 1000, // 30 seconds before timeout
