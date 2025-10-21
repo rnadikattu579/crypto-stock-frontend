@@ -60,22 +60,30 @@ jobs:
             --cache-control "public, max-age=0, must-revalidate"
 
       - name: Invalidate CloudFront cache
-        if: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID != '' }}
+        continue-on-error: true
         run: |
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --paths "/*"
+          if [ -n "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" ]; then
+            aws cloudfront create-invalidation \
+              --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+              --paths "/*"
+          else
+            echo "CloudFront distribution ID not set, skipping cache invalidation"
+          fi
 
       - name: Get CloudFront URL
         id: get-url
-        if: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID != '' }}
+        continue-on-error: true
         run: |
-          DOMAIN=$(aws cloudfront get-distribution \
-            --id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --query 'Distribution.DomainName' \
-            --output text)
-          echo "cloudfront_url=https://$DOMAIN" >> $GITHUB_OUTPUT
-          echo "CloudFront URL: https://$DOMAIN"
+          if [ -n "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" ]; then
+            DOMAIN=$(aws cloudfront get-distribution \
+              --id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+              --query 'Distribution.DomainName' \
+              --output text)
+            echo "cloudfront_url=https://$DOMAIN" >> $GITHUB_OUTPUT
+            echo "CloudFront URL: https://$DOMAIN"
+          else
+            echo "CloudFront distribution ID not set, skipping"
+          fi
 
       - name: Deployment Summary
         run: |
