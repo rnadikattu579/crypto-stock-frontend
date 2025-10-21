@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
-import type { Portfolio, AssetCreate, AssetType } from '../../types';
+import type { Portfolio } from '../../types';
 import { ArrowLeft, Plus, TrendingUp, TrendingDown } from 'lucide-react';
 
 export function CryptoPortfolio() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,7 +43,7 @@ export function CryptoPortfolio() {
               <h1 className="text-2xl font-bold text-gray-900">Crypto Portfolio</h1>
             </div>
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => alert('Add crypto feature - to be implemented')}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               <Plus className="h-5 w-5" />

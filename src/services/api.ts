@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AuthResponse, Portfolio, PortfolioSummary, Asset, AssetCreate, ApiResponse, ApiError } from '../types';
+import type { AuthResponse, Portfolio, PortfolioSummary, Asset, AssetCreate, ApiResponse } from '../types';
 
 class ApiService {
   private api: ReturnType<typeof axios.create>;

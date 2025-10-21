@@ -1,7 +1,9 @@
-export enum AssetType {
-  CRYPTO = 'crypto',
-  STOCK = 'stock',
-}
+export const AssetType = {
+  CRYPTO: 'crypto',
+  STOCK: 'stock',
+} as const;
+
+export type AssetType = typeof AssetType[keyof typeof AssetType];
 
 export interface User {
   user_id: string;
