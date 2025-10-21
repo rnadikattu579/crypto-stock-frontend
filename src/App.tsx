@@ -44,7 +44,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
       />
     </>
   ) : (
-    <Navigate to="/login" />
+    <Navigate to="/" />
   );
 }
 
