@@ -20,6 +20,14 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface PurchaseEntry {
+  purchase_id: string;
+  quantity: number;
+  purchase_price: number;
+  purchase_date: string;
+  total_cost: number;
+}
+
 export interface Asset {
   asset_id: string;
   user_id: string;
@@ -27,8 +35,9 @@ export interface Asset {
   symbol: string;
   name?: string;
   quantity: number;
-  purchase_price: number;
-  purchase_date: string;
+  purchase_price: number;  // Average purchase price
+  purchase_date: string;  // Earliest purchase date
+  purchase_history?: PurchaseEntry[];  // Individual purchase entries
   current_price?: number;
   current_value?: number;
   gain_loss?: number;

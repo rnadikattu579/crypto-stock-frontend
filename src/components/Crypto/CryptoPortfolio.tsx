@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import type { Portfolio } from '../../types';
-import { RefreshCw, Plus, ArrowLeft, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { RefreshCw, Plus, ArrowLeft, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight } from 'lucide-react';
 import { AddAssetModal } from '../shared/AddAssetModal';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -17,8 +17,21 @@ export function CryptoPortfolio() {
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [assetToDelete, setAssetToDelete] = useState<string | null>(null);
+  const [expandedAssets, setExpandedAssets] = useState<Set<string>>(new Set());
 
   const navigate = useNavigate();
+
+  const toggleAssetExpansion = (assetId: string) => {
+    setExpandedAssets(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(assetId)) {
+        newSet.delete(assetId);
+      } else {
+        newSet.add(assetId);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     loadPortfolio();
@@ -276,49 +289,111 @@ export function CryptoPortfolio() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {portfolio.assets.map((asset) => {
                     const assetIsPositive = (asset.gain_loss || 0) >= 0;
+                    const hasMultiplePurchases = (asset.purchase_history?.length || 0) > 1;
+                    const isExpanded = expandedAssets.has(asset.asset_id);
+
                     return (
-                      <tr key={asset.asset_id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="font-bold text-gray-900">{asset.symbol}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                          {asset.quantity.toFixed(4)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                          ${asset.purchase_price.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                          ${asset.current_price?.toFixed(2) || '0.00'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900">
-                          ${asset.current_value?.toFixed(2) || '0.00'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-1">
-                            {assetIsPositive ? (
-                              <TrendingUp className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <TrendingDown className="h-4 w-4 text-red-600" />
-                            )}
-                            <span className={`font-semibold ${assetIsPositive ? 'text-green-600' : 'text-red-600'}`}>
-                              {assetIsPositive ? '+' : ''}${asset.gain_loss?.toFixed(2) || '0.00'}
-                            </span>
-                            <span className={`text-sm ${assetIsPositive ? 'text-green-600' : 'text-red-600'}`}>
-                              ({asset.gain_loss_percentage?.toFixed(2)}%)
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <button
-                            onClick={() => handleDeleteClick(asset.asset_id!)}
-                            disabled={deletingAssetId === asset.asset_id}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="Delete asset"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
+                      <>
+                        <tr key={asset.asset_id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              {hasMultiplePurchases && (
+                                <button
+                                  onClick={() => toggleAssetExpansion(asset.asset_id)}
+                                  className="p-1 hover:bg-purple-100 rounded transition-colors"
+                                  title={isExpanded ? "Collapse purchase history" : "Expand purchase history"}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4 text-purple-600" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-purple-600" />
+                                  )}
+                                </button>
+                              )}
+                              <div className="font-bold text-gray-900">{asset.symbol}</div>
+                              {hasMultiplePurchases && (
+                                <span className="text-xs text-gray-500">({asset.purchase_history?.length} purchases)</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                            {asset.quantity.toFixed(4)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                            ${asset.purchase_price.toFixed(2)}
+                            {hasMultiplePurchases && <span className="text-xs text-gray-400 ml-1">(avg)</span>}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                            ${asset.current_price?.toFixed(2) || '0.00'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900">
+                            ${asset.current_value?.toFixed(2) || '0.00'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-1">
+                              {assetIsPositive ? (
+                                <TrendingUp className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <TrendingDown className="h-4 w-4 text-red-600" />
+                              )}
+                              <span className={`font-semibold ${assetIsPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                {assetIsPositive ? '+' : ''}${asset.gain_loss?.toFixed(2) || '0.00'}
+                              </span>
+                              <span className={`text-sm ${assetIsPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                ({asset.gain_loss_percentage?.toFixed(2)}%)
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button
+                              onClick={() => handleDeleteClick(asset.asset_id!)}
+                              disabled={deletingAssetId === asset.asset_id}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Delete asset"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+
+                        {/* Expanded Purchase History */}
+                        {isExpanded && hasMultiplePurchases && (
+                          <tr key={`${asset.asset_id}-history`}>
+                            <td colSpan={7} className="px-6 py-4 bg-purple-50">
+                              <div className="text-sm">
+                                <h4 className="font-semibold text-gray-900 mb-3">Purchase History</h4>
+                                <div className="space-y-2">
+                                  {asset.purchase_history?.map((purchase) => (
+                                    <div
+                                      key={purchase.purchase_id}
+                                      className="flex items-center justify-between bg-white p-3 rounded-lg border border-purple-100"
+                                    >
+                                      <div className="flex-1">
+                                        <span className="text-gray-600">Date: </span>
+                                        <span className="font-medium text-gray-900">
+                                          {new Date(purchase.purchase_date).toLocaleDateString()}
+                                        </span>
+                                      </div>
+                                      <div className="flex-1">
+                                        <span className="text-gray-600">Quantity: </span>
+                                        <span className="font-medium text-gray-900">{purchase.quantity.toFixed(4)}</span>
+                                      </div>
+                                      <div className="flex-1">
+                                        <span className="text-gray-600">Price: </span>
+                                        <span className="font-medium text-gray-900">${purchase.purchase_price.toFixed(2)}</span>
+                                      </div>
+                                      <div className="flex-1 text-right">
+                                        <span className="text-gray-600">Total: </span>
+                                        <span className="font-semibold text-purple-600">${purchase.total_cost.toFixed(2)}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     );
                   })}
                 </tbody>
