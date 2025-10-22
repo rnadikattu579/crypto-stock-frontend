@@ -242,7 +242,7 @@ export function Dashboard() {
                 <BarChart data={performanceData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
-                  <YAxis />
+                  <YAxis tickFormatter={(value) => `$${value.toFixed(0)}`} />
                   <Tooltip
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
