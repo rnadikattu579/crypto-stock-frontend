@@ -15,9 +15,11 @@ export function AddAssetModal({ isOpen, onClose, assetType, onSuccess }: AddAsse
   const [fetchingPrice, setFetchingPrice] = useState(false);
   const [error, setError] = useState('');
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [useCustomPrice, setUseCustomPrice] = useState(false);
   const [formData, setFormData] = useState({
     symbol: '',
     quantity: '',
+    purchase_price: '',
     purchase_date: new Date().toISOString().split('T')[0],
   });
 
@@ -50,9 +52,20 @@ export function AddAssetModal({ isOpen, onClose, assetType, onSuccess }: AddAsse
     e.preventDefault();
     setError('');
 
-    if (!currentPrice) {
-      setError('Please fetch the current price first');
-      return;
+    // Determine which price to use
+    let priceToUse: number;
+    if (useCustomPrice) {
+      if (!formData.purchase_price || parseFloat(formData.purchase_price) <= 0) {
+        setError('Please enter a valid purchase price');
+        return;
+      }
+      priceToUse = parseFloat(formData.purchase_price);
+    } else {
+      if (!currentPrice) {
+        setError('Please fetch the current price or enter a custom price');
+        return;
+      }
+      priceToUse = currentPrice;
     }
 
     setLoading(true);
@@ -61,7 +74,7 @@ export function AddAssetModal({ isOpen, onClose, assetType, onSuccess }: AddAsse
       const asset: AssetCreate = {
         symbol: formData.symbol.toUpperCase(),
         quantity: parseFloat(formData.quantity),
-        purchase_price: currentPrice,
+        purchase_price: priceToUse,
         purchase_date: formData.purchase_date,
         asset_type: assetType,
       };
@@ -72,9 +85,11 @@ export function AddAssetModal({ isOpen, onClose, assetType, onSuccess }: AddAsse
       setFormData({
         symbol: '',
         quantity: '',
+        purchase_price: '',
         purchase_date: new Date().toISOString().split('T')[0],
       });
       setCurrentPrice(null);
+      setUseCustomPrice(false);
 
       onSuccess();
       onClose();
@@ -113,35 +128,82 @@ export function AddAssetModal({ isOpen, onClose, assetType, onSuccess }: AddAsse
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {assetType === 'crypto' ? 'Symbol (e.g., BTC, ETH)' : 'Ticker (e.g., AAPL, TSLA)'}
             </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                required
-                value={formData.symbol}
-                onChange={(e) => {
-                  setFormData({ ...formData, symbol: e.target.value });
-                  setCurrentPrice(null);
-                }}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder={assetType === 'crypto' ? 'BTC' : 'AAPL'}
-              />
-              <button
-                type="button"
-                onClick={() => fetchCurrentPrice(formData.symbol)}
-                disabled={!formData.symbol.trim() || fetchingPrice}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${fetchingPrice ? 'animate-spin' : ''}`} />
-                {fetchingPrice ? 'Fetching...' : 'Get Price'}
-              </button>
-            </div>
+            <input
+              type="text"
+              required
+              value={formData.symbol}
+              onChange={(e) => {
+                setFormData({ ...formData, symbol: e.target.value });
+                setCurrentPrice(null);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder={assetType === 'crypto' ? 'BTC' : 'AAPL'}
+            />
           </div>
 
-          {currentPrice !== null && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-gray-600">Current Price</p>
-              <p className="text-2xl font-bold text-green-600">${currentPrice.toFixed(2)}</p>
-              <p className="text-xs text-gray-500 mt-1">Real-time price from {assetType === 'crypto' ? 'CoinGecko' : 'Yahoo Finance'}</p>
+          {/* Toggle between current price and custom price */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="useCustomPrice"
+              checked={useCustomPrice}
+              onChange={(e) => {
+                setUseCustomPrice(e.target.checked);
+                if (e.target.checked) {
+                  setCurrentPrice(null);
+                } else {
+                  setFormData({ ...formData, purchase_price: '' });
+                }
+              }}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+            />
+            <label htmlFor="useCustomPrice" className="text-sm font-medium text-gray-700">
+              Enter custom/backdated price
+            </label>
+          </div>
+
+          {/* Current Price Section */}
+          {!useCustomPrice && (
+            <>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => fetchCurrentPrice(formData.symbol)}
+                  disabled={!formData.symbol.trim() || fetchingPrice}
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${fetchingPrice ? 'animate-spin' : ''}`} />
+                  {fetchingPrice ? 'Fetching Current Price...' : 'Fetch Current Price'}
+                </button>
+              </div>
+
+              {currentPrice !== null && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-gray-600">Current Price</p>
+                  <p className="text-2xl font-bold text-green-600">${currentPrice.toFixed(2)}</p>
+                  <p className="text-xs text-gray-500 mt-1">Real-time price from {assetType === 'crypto' ? 'CoinGecko' : 'Yahoo Finance'}</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Custom Price Section */}
+          {useCustomPrice && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Purchase Price (Custom/Backdated)
+              </label>
+              <input
+                type="number"
+                required={useCustomPrice}
+                step="0.01"
+                min="0"
+                value={formData.purchase_price}
+                onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0.00"
+              />
+              <p className="text-xs text-gray-500 mt-1">Enter the price you paid for this asset</p>
             </div>
           )}
 
@@ -159,10 +221,19 @@ export function AddAssetModal({ isOpen, onClose, assetType, onSuccess }: AddAsse
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="0.5"
             />
-            {currentPrice && formData.quantity && (
-              <p className="text-sm text-gray-600 mt-1">
-                Total: ${(currentPrice * parseFloat(formData.quantity || '0')).toFixed(2)}
-              </p>
+            {formData.quantity && (
+              <>
+                {!useCustomPrice && currentPrice && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Total Investment: ${(currentPrice * parseFloat(formData.quantity || '0')).toFixed(2)}
+                  </p>
+                )}
+                {useCustomPrice && formData.purchase_price && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Total Investment: ${(parseFloat(formData.purchase_price) * parseFloat(formData.quantity || '0')).toFixed(2)}
+                  </p>
+                )}
+              </>
             )}
           </div>
 
