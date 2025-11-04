@@ -11,6 +11,8 @@ import { Register } from './components/Auth/Register';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { CryptoPortfolio } from './components/Crypto/CryptoPortfolio';
 import { StockPortfolio } from './components/Stocks/StockPortfolio';
+import { Analytics } from './components/Analytics/Analytics';
+import { Settings } from './components/Settings/Settings';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -97,6 +99,22 @@ function App() {
             element={
               <PrivateRoute>
                 <StockPortfolio />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <PrivateRoute>
+                <Analytics />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <PrivateRoute>
+                <Settings />
               </PrivateRoute>
             }
           />

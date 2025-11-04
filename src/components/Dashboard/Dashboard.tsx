@@ -6,6 +6,10 @@ import type { PortfolioSummary, Portfolio } from '../../types';
 import { TrendingUp, TrendingDown, DollarSign, PieChart, RefreshCw } from 'lucide-react';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { SkeletonDashboard } from '../shared/LoadingSkeleton';
+import { EmptyState } from '../shared/EmptyState';
+import { QuickActions } from './QuickActions';
+import { TopPerformers } from './TopPerformers';
+import { PortfolioInsights } from './PortfolioInsights';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
@@ -66,6 +70,7 @@ export function Dashboard() {
   }
 
   const isPositive = (summary?.total_gain_loss || 0) >= 0;
+  const totalAssets = (cryptoPortfolio?.assets.length || 0) + (stockPortfolio?.assets.length || 0);
 
   // Prepare data for charts
   const assetTypeData = [
@@ -197,6 +202,28 @@ export function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Empty State or Content */}
+        {totalAssets === 0 ? (
+          <EmptyState type="dashboard" />
+        ) : (
+          <>
+            {/* Quick Actions */}
+            <div className="mb-8">
+              <QuickActions />
+            </div>
+
+            {/* Top Performers */}
+            <div className="mb-8">
+              <TopPerformers cryptoPortfolio={cryptoPortfolio} stockPortfolio={stockPortfolio} />
+            </div>
+
+            {/* Portfolio Insights */}
+            <div className="mb-8">
+              <PortfolioInsights cryptoPortfolio={cryptoPortfolio} stockPortfolio={stockPortfolio} summary={summary} />
+            </div>
+          </>
+        )}
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

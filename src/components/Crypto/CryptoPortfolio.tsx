@@ -2,12 +2,13 @@ import { useEffect, useState, useMemo, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import type { Portfolio } from '../../types';
-import { RefreshCw, Plus, ArrowLeft, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight, Search, Download, ArrowUpDown } from 'lucide-react';
+import { RefreshCw, Plus, ArrowLeft, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight, Search, Download, ArrowUpDown, List, LayoutGrid } from 'lucide-react';
 import { AddAssetModal } from '../shared/AddAssetModal';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useToast } from '../../contexts/ToastContext';
 import { SkeletonPortfolio } from '../shared/LoadingSkeleton';
+import { EmptyState } from '../shared/EmptyState';
 
 const COLORS = ['#8b5cf6', '#ec4899', '#06b6d4', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#84cc16'];
 
@@ -26,6 +27,7 @@ export function CryptoPortfolio() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('symbol');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   const navigate = useNavigate();
   const toast = useToast();
@@ -234,6 +236,23 @@ export function CryptoPortfolio() {
               )}
             </div>
             <div className="flex items-center gap-3">
+              {/* View Toggle */}
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-600 hover:text-gray-900'}`}
+                  title="List View"
+                >
+                  <List className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-600 hover:text-gray-900'}`}
+                  title="Grid View"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+              </div>
               <button
                 onClick={exportToCSV}
                 className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
@@ -381,8 +400,10 @@ export function CryptoPortfolio() {
 
           {portfolio && portfolio.assets.length > 0 ? (
             <>
-              {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
+              {viewMode === 'list' ? (
+                <>
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
@@ -610,18 +631,86 @@ export function CryptoPortfolio() {
                 );
               })}
             </div>
-          </>
+                </>
+              ) : (
+                /* Grid View */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                  {filteredAndSortedAssets.map((asset) => {
+                    const assetIsPositive = (asset.gain_loss || 0) >= 0;
+                    return (
+                      <div
+                        key={asset.asset_id}
+                        className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl shadow-md hover:shadow-xl transition-all p-6 border border-purple-100"
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
+                              <span className="text-white font-bold text-lg">{asset.symbol.charAt(0)}</span>
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-900">{asset.symbol}</h3>
+                              <p className="text-sm text-gray-600">{asset.quantity.toFixed(4)} units</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteClick(asset.asset_id)}
+                            disabled={deletingAssetId === asset.asset_id}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            title="Delete asset"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center pb-3 border-b border-purple-200">
+                            <span className="text-sm text-gray-600">Current Value</span>
+                            <span className="text-2xl font-bold text-gray-900">
+                              ${asset.current_value?.toFixed(2) || '0.00'}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Purchase Price</span>
+                            <span className="font-medium text-gray-700">${asset.purchase_price.toFixed(2)}</span>
+                          </div>
+
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Current Price</span>
+                            <span className="font-medium text-gray-700">${asset.current_price?.toFixed(2) || '0.00'}</span>
+                          </div>
+
+                          <div className="flex justify-between items-center pt-3 border-t border-purple-200">
+                            <span className="text-sm font-medium text-gray-600">Gain/Loss</span>
+                            <div className="flex items-center gap-2">
+                              {assetIsPositive ? (
+                                <TrendingUp className="h-5 w-5 text-green-600" />
+                              ) : (
+                                <TrendingDown className="h-5 w-5 text-red-600" />
+                              )}
+                              <div className="text-right">
+                                <div className={`font-bold ${assetIsPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                  {assetIsPositive ? '+' : ''}${asset.gain_loss?.toFixed(2) || '0.00'}
+                                </div>
+                                <div className={`text-sm ${assetIsPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                  ({assetIsPositive ? '+' : ''}{asset.gain_loss_percentage?.toFixed(2)}%)
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           ) : (
-            <div className="px-6 py-12 text-center">
-              <p className="text-gray-500 mb-4">No crypto assets yet</p>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                Add Your First Crypto
-              </button>
-            </div>
+            <EmptyState
+              type="portfolio"
+              assetType="crypto"
+              onAddAsset={() => setIsModalOpen(true)}
+            />
           )}
         </div>
       </main>
