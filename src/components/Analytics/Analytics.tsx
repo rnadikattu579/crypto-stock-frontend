@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, DollarSign, PieChart as PieChartIcon } from 'lucide-react';
+import { TrendingUp, DollarSign, PieChart as PieChartIcon } from 'lucide-react';
+import { Navigation } from '../shared/Navigation';
 import { apiService } from '../../services/api';
 import type { Portfolio } from '../../types';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -9,7 +9,6 @@ export function Analytics() {
   const [cryptoPortfolio, setCryptoPortfolio] = useState<Portfolio | null>(null);
   const [stockPortfolio, setStockPortfolio] = useState<Portfolio | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     loadData();
@@ -69,24 +68,10 @@ export function Analytics() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="h-6 w-6 text-gray-600" />
-            </button>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              Portfolio Analytics
-            </h1>
-          </div>
-        </div>
-      </header>
+      <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Portfolio Analytics</h1>
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-lg p-6">

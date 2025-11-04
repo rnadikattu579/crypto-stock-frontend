@@ -1,12 +1,12 @@
-import { ArrowLeft, User, Bell, Shield, Download, Moon, Sun } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { User, Bell, Shield, Download, Moon, Sun } from 'lucide-react';
+import { Navigation } from '../shared/Navigation';
+import { useDarkMode } from '../../contexts/DarkModeContext';
 import { useAuthStore } from '../../store/authStore';
 import { useState } from 'react';
 
 export function Settings() {
-  const navigate = useNavigate();
   const { user } = useAuthStore();
-  const [darkMode, setDarkMode] = useState(false);
+  const { darkMode, toggleDarkMode } = useDarkMode();
   const [notifications, setNotifications] = useState({
     priceAlerts: true,
     weeklyReports: true,
@@ -15,24 +15,10 @@ export function Settings() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="h-6 w-6 text-gray-600" />
-            </button>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              Settings
-            </h1>
-          </div>
-        </div>
-      </header>
+      <Navigation />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Settings</h1>
         {/* Profile Settings */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
           <div className="flex items-center gap-3 mb-6">
@@ -136,12 +122,11 @@ export function Settings() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-medium text-gray-900">Dark Mode</h3>
-              <p className="text-sm text-gray-600">Toggle dark mode interface (Coming Soon)</p>
+              <p className="text-sm text-gray-600">Toggle dark mode interface</p>
             </div>
             <button
-              onClick={() => setDarkMode(!darkMode)}
-              disabled
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors opacity-50 cursor-not-allowed ${
+              onClick={toggleDarkMode}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                 darkMode ? 'bg-blue-600' : 'bg-gray-300'
               }`}
             >

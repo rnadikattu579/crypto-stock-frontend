@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'r
 import { useAuthStore } from './store/authStore';
 import { useIdleTimeout } from './hooks/useIdleTimeout';
 import { ToastProvider } from './contexts/ToastContext';
+import { DarkModeProvider } from './contexts/DarkModeContext';
 import { ToastContainer } from './components/shared/Toast';
 import { TimeoutWarningDialog } from './components/shared/TimeoutWarningDialog';
 import { LandingPage } from './components/Landing/LandingPage';
@@ -13,6 +14,7 @@ import { CryptoPortfolio } from './components/Crypto/CryptoPortfolio';
 import { StockPortfolio } from './components/Stocks/StockPortfolio';
 import { Analytics } from './components/Analytics/Analytics';
 import { Settings } from './components/Settings/Settings';
+import { Alerts } from './components/Alerts/Alerts';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -59,10 +61,11 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <ToastProvider>
-      <Router>
-        <ToastContainer />
-        <Routes>
+    <DarkModeProvider>
+      <ToastProvider>
+        <Router>
+          <ToastContainer />
+          <Routes>
           <Route path="/" element={
             <PublicRoute>
               <LandingPage />
@@ -118,9 +121,18 @@ function App() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/alerts"
+            element={
+              <PrivateRoute>
+                <Alerts />
+              </PrivateRoute>
+            }
+          />
         </Routes>
       </Router>
     </ToastProvider>
+    </DarkModeProvider>
   );
 }
 
