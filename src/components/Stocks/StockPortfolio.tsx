@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
-import type { Portfolio, Asset } from '../../types';
+import type { Portfolio } from '../../types';
 import { RefreshCw, Plus, ArrowLeft, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight, Search, Download, ArrowUpDown } from 'lucide-react';
 import { AddAssetModal } from '../shared/AddAssetModal';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
