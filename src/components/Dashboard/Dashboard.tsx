@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import type { PortfolioSummary, Portfolio } from '../../types';
 import { TrendingUp, TrendingDown, DollarSign, PieChart, RefreshCw } from 'lucide-react';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { SkeletonDashboard } from '../shared/LoadingSkeleton';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
@@ -61,11 +62,7 @@ export function Dashboard() {
   };
 
   if (loading && !summary) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-xl font-semibold text-gray-700">Loading...</div>
-      </div>
-    );
+    return <SkeletonDashboard />;
   }
 
   const isPositive = (summary?.total_gain_loss || 0) >= 0;

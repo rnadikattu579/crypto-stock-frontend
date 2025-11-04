@@ -1,13 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
-import type { Portfolio } from '../../types';
-import { RefreshCw, Plus, ArrowLeft, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight } from 'lucide-react';
+import type { Portfolio, Asset } from '../../types';
+import { RefreshCw, Plus, ArrowLeft, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight, Search, Download, ArrowUpDown } from 'lucide-react';
 import { AddAssetModal } from '../shared/AddAssetModal';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { useToast } from '../../contexts/ToastContext';
+import { SkeletonPortfolio } from '../shared/LoadingSkeleton';
 
 const COLORS = ['#8b5cf6', '#ec4899', '#06b6d4', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#84cc16'];
+
+type SortField = 'symbol' | 'quantity' | 'value' | 'gainLoss';
+type SortDirection = 'asc' | 'desc';
 
 export function CryptoPortfolio() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -18,8 +23,12 @@ export function CryptoPortfolio() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [assetToDelete, setAssetToDelete] = useState<string | null>(null);
   const [expandedAssets, setExpandedAssets] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<SortField>('symbol');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const navigate = useNavigate();
+  const toast = useToast();
 
   const toggleAssetExpansion = (assetId: string) => {
     setExpandedAssets(prev => {
@@ -55,6 +64,9 @@ export function CryptoPortfolio() {
       setPortfolio(data);
     } catch (err) {
       console.error('Failed to load crypto portfolio', err);
+      if (!isAutoRefresh) {
+        toast.error('Failed to load crypto portfolio. Please try again.');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -74,9 +86,10 @@ export function CryptoPortfolio() {
       setConfirmDialogOpen(false);
       await apiService.deleteAsset(assetToDelete);
       await loadPortfolio();
+      toast.success('Asset deleted successfully');
     } catch (err) {
       console.error('Failed to delete asset', err);
-      alert('Failed to delete asset. Please try again.');
+      toast.error('Failed to delete asset. Please try again.');
     } finally {
       setDeletingAssetId(null);
       setAssetToDelete(null);
@@ -88,12 +101,98 @@ export function CryptoPortfolio() {
     setAssetToDelete(null);
   };
 
-  if (loading && !portfolio) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 flex items-center justify-center">
-        <div className="text-xl font-semibold text-gray-700">Loading...</div>
-      </div>
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const filteredAndSortedAssets = useMemo(() => {
+    if (!portfolio) return [];
+
+    let filtered = portfolio.assets.filter(asset =>
+      asset.symbol.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const sorted = [...filtered].sort((a, b) => {
+      let aVal, bVal;
+
+      switch (sortField) {
+        case 'symbol':
+          aVal = a.symbol;
+          bVal = b.symbol;
+          break;
+        case 'quantity':
+          aVal = a.quantity;
+          bVal = b.quantity;
+          break;
+        case 'value':
+          aVal = a.current_value || 0;
+          bVal = b.current_value || 0;
+          break;
+        case 'gainLoss':
+          aVal = a.gain_loss || 0;
+          bVal = b.gain_loss || 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (typeof aVal === 'string') {
+        return sortDirection === 'asc'
+          ? aVal.localeCompare(bVal as string)
+          : (bVal as string).localeCompare(aVal);
+      } else {
+        return sortDirection === 'asc'
+          ? (aVal as number) - (bVal as number)
+          : (bVal as number) - (aVal as number);
+      }
+    });
+
+    return sorted;
+  }, [portfolio, searchQuery, sortField, sortDirection]);
+
+  const exportToCSV = () => {
+    if (!portfolio || portfolio.assets.length === 0) {
+      toast.warning('No assets to export');
+      return;
+    }
+
+    const headers = ['Symbol', 'Quantity', 'Purchase Price', 'Current Price', 'Current Value', 'Gain/Loss', 'Gain/Loss %', 'Purchase Date'];
+    const rows = portfolio.assets.map(asset => [
+      asset.symbol,
+      asset.quantity.toFixed(4),
+      asset.purchase_price.toFixed(2),
+      (asset.current_price || 0).toFixed(2),
+      (asset.current_value || 0).toFixed(2),
+      (asset.gain_loss || 0).toFixed(2),
+      (asset.gain_loss_percentage || 0).toFixed(2),
+      new Date(asset.purchase_date).toLocaleDateString()
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `crypto-portfolio-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success('Portfolio exported successfully');
+  };
+
+  if (loading && !portfolio) {
+    return <SkeletonPortfolio />;
   }
 
   const isPositive = (portfolio?.total_gain_loss || 0) >= 0;
@@ -135,6 +234,14 @@ export function CryptoPortfolio() {
               )}
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={exportToCSV}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                title="Export to CSV"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </button>
               <button
                 onClick={() => loadPortfolio()}
                 disabled={refreshing}
@@ -255,19 +362,51 @@ export function CryptoPortfolio() {
         {/* Assets Table */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900">Your Crypto Assets</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Your Crypto Assets</h2>
+              {portfolio && portfolio.assets.length > 0 && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by symbol..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {portfolio && portfolio.assets.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Symbol
+                    <th
+                      onClick={() => handleSort('symbol')}
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    >
+                      <div className="flex items-center gap-1">
+                        Symbol
+                        {sortField === 'symbol' && (
+                          <ArrowUpDown className="h-3 w-3" />
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Quantity
+                    <th
+                      onClick={() => handleSort('quantity')}
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    >
+                      <div className="flex items-center gap-1">
+                        Quantity
+                        {sortField === 'quantity' && (
+                          <ArrowUpDown className="h-3 w-3" />
+                        )}
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Purchase Price
@@ -275,11 +414,27 @@ export function CryptoPortfolio() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Current Price
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Current Value
+                    <th
+                      onClick={() => handleSort('value')}
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    >
+                      <div className="flex items-center gap-1">
+                        Current Value
+                        {sortField === 'value' && (
+                          <ArrowUpDown className="h-3 w-3" />
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Gain/Loss
+                    <th
+                      onClick={() => handleSort('gainLoss')}
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    >
+                      <div className="flex items-center gap-1">
+                        Gain/Loss
+                        {sortField === 'gainLoss' && (
+                          <ArrowUpDown className="h-3 w-3" />
+                        )}
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -287,14 +442,14 @@ export function CryptoPortfolio() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {portfolio.assets.map((asset) => {
+                  {filteredAndSortedAssets.map((asset) => {
                     const assetIsPositive = (asset.gain_loss || 0) >= 0;
                     const hasMultiplePurchases = (asset.purchase_history?.length || 0) > 1;
                     const isExpanded = expandedAssets.has(asset.asset_id);
 
                     return (
-                      <>
-                        <tr key={asset.asset_id} className="hover:bg-gray-50">
+                      <Fragment key={asset.asset_id}>
+                        <tr className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               {hasMultiplePurchases && (
@@ -393,12 +548,69 @@ export function CryptoPortfolio() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-gray-200">
+              {filteredAndSortedAssets.map((asset) => {
+                const assetIsPositive = (asset.gain_loss || 0) >= 0;
+                return (
+                  <div key={asset.asset_id} className="p-4 hover:bg-gray-50">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="font-bold text-lg text-gray-900">{asset.symbol}</div>
+                      <button
+                        onClick={() => handleDeleteClick(asset.asset_id!)}
+                        disabled={deletingAssetId === asset.asset_id}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Delete asset"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Quantity:</span>
+                        <span className="font-medium text-gray-900">{asset.quantity.toFixed(4)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Purchase Price:</span>
+                        <span className="font-medium text-gray-900">${asset.purchase_price.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Current Price:</span>
+                        <span className="font-medium text-gray-900">${asset.current_price?.toFixed(2) || '0.00'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Current Value:</span>
+                        <span className="font-semibold text-gray-900">${asset.current_value?.toFixed(2) || '0.00'}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                        <span className="text-gray-600">Gain/Loss:</span>
+                        <div className="flex items-center gap-1">
+                          {assetIsPositive ? (
+                            <TrendingUp className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <TrendingDown className="h-4 w-4 text-red-600" />
+                          )}
+                          <span className={`font-semibold ${assetIsPositive ? 'text-green-600' : 'text-red-600'}`}>
+                            {assetIsPositive ? '+' : ''}${asset.gain_loss?.toFixed(2) || '0.00'}
+                          </span>
+                          <span className={`text-xs ${assetIsPositive ? 'text-green-600' : 'text-red-600'}`}>
+                            ({asset.gain_loss_percentage?.toFixed(2)}%)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
           ) : (
             <div className="px-6 py-12 text-center">
               <p className="text-gray-500 mb-4">No crypto assets yet</p>

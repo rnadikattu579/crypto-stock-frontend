@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { useToast } from '../../contexts/ToastContext';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -11,6 +12,7 @@ export function Login() {
 
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
+  const toast = useToast();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -20,9 +22,12 @@ export function Login() {
     try {
       const response = await apiService.login(email, password);
       setAuth(response.user, response.access_token);
+      toast.success('Login successful! Welcome back.');
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed. Please try again.');
+      const errorMsg = err.response?.data?.error || 'Login failed. Please check your credentials and try again.';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }

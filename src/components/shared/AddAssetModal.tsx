@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { X, RefreshCw } from 'lucide-react';
 import { apiService } from '../../services/api';
 import type { AssetCreate } from '../../types';
+import { useToast } from '../../contexts/ToastContext';
 
 interface AddAssetModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export function AddAssetModal({ isOpen, onClose, assetType, onSuccess }: AddAsse
     purchase_price: '',
     purchase_date: new Date().toISOString().split('T')[0],
   });
+  const toast = useToast();
 
   const fetchCurrentPrice = async (symbol: string) => {
     if (!symbol.trim()) return;
@@ -34,15 +36,22 @@ export function AddAssetModal({ isOpen, onClose, assetType, onSuccess }: AddAsse
       const prices = await apiService.getPrices([symbol.toUpperCase()], assetType);
       if (prices && prices.length > 0 && prices[0].price !== null && prices[0].price !== undefined) {
         if (prices[0].price === 0) {
-          setError(`Could not fetch price for ${symbol.toUpperCase()}. Please check the symbol.`);
+          const errorMsg = `Could not fetch price for ${symbol.toUpperCase()}. Please check the symbol.`;
+          setError(errorMsg);
+          toast.error(errorMsg);
         } else {
           setCurrentPrice(prices[0].price);
+          toast.success(`Price fetched successfully: $${prices[0].price.toFixed(2)}`);
         }
       } else {
-        setError(`Could not fetch price for ${symbol.toUpperCase()}. Please check the symbol.`);
+        const errorMsg = `Could not fetch price for ${symbol.toUpperCase()}. Please check the symbol.`;
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || `Failed to fetch price for ${symbol}`);
+      const errorMsg = err.response?.data?.error || `Failed to fetch price for ${symbol}`;
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setFetchingPrice(false);
     }
@@ -91,10 +100,13 @@ export function AddAssetModal({ isOpen, onClose, assetType, onSuccess }: AddAsse
       setCurrentPrice(null);
       setUseCustomPrice(false);
 
+      toast.success(`${asset.symbol} added successfully to your ${assetType} portfolio!`);
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to add asset');
+      const errorMsg = err.response?.data?.error || 'Failed to add asset. Please try again.';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }

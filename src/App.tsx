@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { useIdleTimeout } from './hooks/useIdleTimeout';
+import { ToastProvider } from './contexts/ToastContext';
+import { ToastContainer } from './components/shared/Toast';
 import { TimeoutWarningDialog } from './components/shared/TimeoutWarningDialog';
 import { LandingPage } from './components/Landing/LandingPage';
 import { Login } from './components/Auth/Login';
@@ -55,49 +57,52 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={
-          <PublicRoute>
-            <LandingPage />
-          </PublicRoute>
-        } />
-        <Route path="/login" element={
-          <PublicRoute>
-            <Login />
-          </PublicRoute>
-        } />
-        <Route path="/register" element={
-          <PublicRoute>
-            <Register />
-          </PublicRoute>
-        } />
-        <Route
-          path="/dashboard"
-          element={
-            <PrivateRoute>
-              <Dashboard />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/crypto"
-          element={
-            <PrivateRoute>
-              <CryptoPortfolio />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/stocks"
-          element={
-            <PrivateRoute>
-              <StockPortfolio />
-            </PrivateRoute>
-          }
-        />
-      </Routes>
-    </Router>
+    <ToastProvider>
+      <Router>
+        <ToastContainer />
+        <Routes>
+          <Route path="/" element={
+            <PublicRoute>
+              <LandingPage />
+            </PublicRoute>
+          } />
+          <Route path="/login" element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          } />
+          <Route path="/register" element={
+            <PublicRoute>
+              <Register />
+            </PublicRoute>
+          } />
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/crypto"
+            element={
+              <PrivateRoute>
+                <CryptoPortfolio />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/stocks"
+            element={
+              <PrivateRoute>
+                <StockPortfolio />
+              </PrivateRoute>
+            }
+          />
+        </Routes>
+      </Router>
+    </ToastProvider>
   );
 }
 

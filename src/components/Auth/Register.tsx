@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { useToast } from '../../contexts/ToastContext';
 
 export function Register() {
   const [email, setEmail] = useState('');
@@ -13,18 +14,23 @@ export function Register() {
 
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
+  const toast = useToast();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      const errorMsg = 'Passwords do not match';
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters long');
+      const errorMsg = 'Password must be at least 8 characters long';
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -33,9 +39,12 @@ export function Register() {
     try {
       const response = await apiService.register(email, password, fullName);
       setAuth(response.user, response.access_token);
+      toast.success('Account created successfully! Welcome to Portfolio Tracker.');
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Registration failed. Please try again.');
+      const errorMsg = err.response?.data?.error || 'Registration failed. Please try again.';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
