@@ -22,7 +22,7 @@ export function Navigation() {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <header className="bg-white shadow-md border-b border-gray-200">
+    <header className="bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           {/* Logo and Brand */}
@@ -33,7 +33,7 @@ export function Navigation() {
             <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl">
               <TrendingUp className="h-6 w-6 text-white" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent hidden sm:block">
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-indigo-400 hidden sm:block">
               Portfolio Tracker
             </span>
           </div>
@@ -52,7 +52,7 @@ export function Navigation() {
                     flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all
                     ${active
                       ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
                     }
                   `}
                 >
@@ -66,8 +66,8 @@ export function Navigation() {
           {/* User Menu */}
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex flex-col items-end">
-              <span className="text-xs text-gray-500">Welcome back</span>
-              <span className="text-sm font-semibold text-gray-900">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Welcome back</span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">
                 {user?.email?.split('@')[0] || 'User'}
               </span>
             </div>

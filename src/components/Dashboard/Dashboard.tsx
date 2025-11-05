@@ -88,59 +88,59 @@ export function Dashboard() {
     .slice(0, 10); // Top 10 performers
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <Navigation />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Title & Refresh Status */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
           {refreshing && (
-            <div className="flex items-center gap-2 text-sm text-gray-500 bg-white px-4 py-2 rounded-lg shadow-sm">
+            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-700 px-4 py-2 rounded-lg shadow-sm">
               <RefreshCw className="h-4 w-4 animate-spin" />
               <span>Updating...</span>
             </div>
           )}
         </div>
         {error && (
-          <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6">
             {error}
           </div>
         )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Value</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2 transition-all duration-300">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Value</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2 transition-all duration-300">
                   ${summary?.total_value.toFixed(2) || '0.00'}
                 </p>
               </div>
-              <div className="p-3 bg-blue-100 rounded-full">
-                <DollarSign className="h-8 w-8 text-blue-600" />
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                <DollarSign className="h-8 w-8 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Gain/Loss</p>
-                <p className={`text-3xl font-bold mt-2 transition-all duration-300 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Gain/Loss</p>
+                <p className={`text-3xl font-bold mt-2 transition-all duration-300 ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                   {isPositive ? '+' : ''}${summary?.total_gain_loss.toFixed(2) || '0.00'}
                 </p>
-                <p className={`text-sm font-semibold transition-all duration-300 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                <p className={`text-sm font-semibold transition-all duration-300 ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                   {summary?.total_gain_loss_percentage.toFixed(2)}%
                 </p>
               </div>
-              <div className={`p-3 rounded-full transition-all duration-300 ${isPositive ? 'bg-green-100' : 'bg-red-100'}`}>
+              <div className={`p-3 rounded-full transition-all duration-300 ${isPositive ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
                 {isPositive ? (
-                  <TrendingUp className="h-8 w-8 text-green-600" />
+                  <TrendingUp className="h-8 w-8 text-green-600 dark:text-green-400" />
                 ) : (
-                  <TrendingDown className="h-8 w-8 text-red-600" />
+                  <TrendingDown className="h-8 w-8 text-red-600 dark:text-red-400" />
                 )}
               </div>
             </div>
@@ -148,36 +148,36 @@ export function Dashboard() {
 
           <div
             onClick={() => navigate('/crypto')}
-            className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Crypto Value</p>
-                <p className="text-3xl font-bold text-purple-600 mt-2 transition-all duration-300">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Crypto Value</p>
+                <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-2 transition-all duration-300">
                   ${summary?.crypto_value.toFixed(2) || '0.00'}
                 </p>
-                <p className="text-sm text-gray-500 transition-all duration-300">{summary?.crypto_count || 0} assets</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 transition-all duration-300">{summary?.crypto_count || 0} assets</p>
               </div>
-              <div className="p-3 bg-purple-100 rounded-full">
-                <PieChart className="h-8 w-8 text-purple-600" />
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-full">
+                <PieChart className="h-8 w-8 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </div>
 
           <div
             onClick={() => navigate('/stocks')}
-            className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Stock Value</p>
-                <p className="text-3xl font-bold text-indigo-600 mt-2 transition-all duration-300">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Stock Value</p>
+                <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mt-2 transition-all duration-300">
                   ${summary?.stock_value.toFixed(2) || '0.00'}
                 </p>
-                <p className="text-sm text-gray-500 transition-all duration-300">{summary?.stock_count || 0} assets</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 transition-all duration-300">{summary?.stock_count || 0} assets</p>
               </div>
-              <div className="p-3 bg-indigo-100 rounded-full">
-                <PieChart className="h-8 w-8 text-indigo-600" />
+              <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-full">
+                <PieChart className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
               </div>
             </div>
           </div>
@@ -208,8 +208,8 @@ export function Dashboard() {
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Portfolio Distribution Chart */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Portfolio Distribution</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Portfolio Distribution</h2>
             {assetTypeData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <RechartsPie>
@@ -232,15 +232,15 @@ export function Dashboard() {
                 </RechartsPie>
               </ResponsiveContainer>
             ) : (
-              <div className="h-300 flex items-center justify-center text-gray-500">
+              <div className="h-300 flex items-center justify-center text-gray-500 dark:text-gray-400">
                 No assets to display
               </div>
             )}
           </div>
 
           {/* Top Performers Chart */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Top Performers</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Top Performers</h2>
             {performanceData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={performanceData}>
@@ -252,12 +252,12 @@ export function Dashboard() {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         return (
-                          <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-                            <p className="font-semibold text-gray-900">{data.name}</p>
-                            <p className={`text-sm ${data.gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          <div className="bg-white dark:bg-gray-700 p-3 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg">
+                            <p className="font-semibold text-gray-900 dark:text-white">{data.name}</p>
+                            <p className={`text-sm ${data.gainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                               {data.gainLoss >= 0 ? '+' : ''}${data.gainLoss.toFixed(2)}
                             </p>
-                            <p className={`text-sm ${data.gainLossPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <p className={`text-sm ${data.gainLossPercentage >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                               {data.gainLossPercentage >= 0 ? '+' : ''}{data.gainLossPercentage.toFixed(2)}%
                             </p>
                           </div>
@@ -275,7 +275,7 @@ export function Dashboard() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-300 flex items-center justify-center text-gray-500">
+              <div className="h-300 flex items-center justify-center text-gray-500 dark:text-gray-400">
                 No assets to display
               </div>
             )}
@@ -286,18 +286,18 @@ export function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <button
             onClick={() => navigate('/crypto')}
-            className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl shadow-lg p-8 hover:shadow-2xl transition-all text-left transform hover:scale-105"
+            className="bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 rounded-xl shadow-lg p-8 hover:shadow-2xl transition-all text-left transform hover:scale-105"
           >
             <h2 className="text-2xl font-bold text-white mb-2">Crypto Portfolio</h2>
-            <p className="text-purple-100">View and manage your cryptocurrency investments</p>
+            <p className="text-purple-100 dark:text-purple-200">View and manage your cryptocurrency investments</p>
           </button>
 
           <button
             onClick={() => navigate('/stocks')}
-            className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-xl shadow-lg p-8 hover:shadow-2xl transition-all text-left transform hover:scale-105"
+            className="bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700 rounded-xl shadow-lg p-8 hover:shadow-2xl transition-all text-left transform hover:scale-105"
           >
             <h2 className="text-2xl font-bold text-white mb-2">Stock Portfolio</h2>
-            <p className="text-indigo-100">View and manage your stock investments</p>
+            <p className="text-indigo-100 dark:text-indigo-200">View and manage your stock investments</p>
           </button>
         </div>
       </main>
