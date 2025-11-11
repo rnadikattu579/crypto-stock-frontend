@@ -4,6 +4,8 @@ import { useAuthStore } from './store/authStore';
 import { useIdleTimeout } from './hooks/useIdleTimeout';
 import { ToastProvider } from './contexts/ToastContext';
 import { DarkModeProvider } from './contexts/DarkModeContext';
+import { KeyboardShortcutsProvider } from './contexts/KeyboardShortcutsContext';
+import { PriceUpdateProvider } from './contexts/PriceUpdateContext';
 import { ToastContainer } from './components/shared/Toast';
 import { TimeoutWarningDialog } from './components/shared/TimeoutWarningDialog';
 import { LandingPage } from './components/Landing/LandingPage';
@@ -15,6 +17,9 @@ import { StockPortfolio } from './components/Stocks/StockPortfolio';
 import { Analytics } from './components/Analytics/Analytics';
 import { Settings } from './components/Settings/Settings';
 import { Alerts } from './components/Alerts/Alerts';
+import { TransactionHistory } from './components/TransactionHistory/TransactionHistory';
+import { Watchlist } from './components/Watchlist/Watchlist';
+import { InsightsPage } from './components/Insights/InsightsPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -63,9 +68,11 @@ function App() {
   return (
     <DarkModeProvider>
       <ToastProvider>
-        <Router>
-          <ToastContainer />
-          <Routes>
+        <PriceUpdateProvider>
+          <Router>
+            <KeyboardShortcutsProvider>
+              <ToastContainer />
+              <Routes>
           <Route path="/" element={
             <PublicRoute>
               <LandingPage />
@@ -129,9 +136,35 @@ function App() {
               </PrivateRoute>
             }
           />
-        </Routes>
-      </Router>
-    </ToastProvider>
+          <Route
+            path="/transactions"
+            element={
+              <PrivateRoute>
+                <TransactionHistory />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/watchlist"
+            element={
+              <PrivateRoute>
+                <Watchlist />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/insights"
+            element={
+              <PrivateRoute>
+                <InsightsPage />
+              </PrivateRoute>
+            }
+          />
+            </Routes>
+            </KeyboardShortcutsProvider>
+          </Router>
+        </PriceUpdateProvider>
+      </ToastProvider>
     </DarkModeProvider>
   );
 }

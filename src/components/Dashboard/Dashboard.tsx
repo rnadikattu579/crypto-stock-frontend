@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import type { PortfolioSummary, Portfolio } from '../../types';
 import { TrendingUp, TrendingDown, DollarSign, PieChart, RefreshCw } from 'lucide-react';
+import { usePriceUpdates, useRegisterAssets } from '../../contexts/PriceUpdateContext';
+import { LivePriceIndicator } from '../shared/LivePriceIndicator';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { SkeletonDashboard } from '../shared/LoadingSkeleton';
 import { EmptyState } from '../shared/EmptyState';
 import { Navigation } from '../shared/Navigation';
 import { QuickActions } from './QuickActions';
 import { TopPerformers } from './TopPerformers';
-import { PortfolioInsights } from './PortfolioInsights';
+import { PortfolioInsightsWidget } from '../Insights/PortfolioInsightsWidget';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
@@ -22,6 +24,11 @@ export function Dashboard() {
   const [error, setError] = useState('');
 
   const navigate = useNavigate();
+  const { applyUpdatesToPortfolio, isLiveEnabled } = usePriceUpdates();
+
+  // Register all assets for live updates
+  useRegisterAssets(cryptoPortfolio?.assets || [], 'crypto');
+  useRegisterAssets(stockPortfolio?.assets || [], 'stock');
 
   useEffect(() => {
     loadData();
@@ -63,22 +70,45 @@ export function Dashboard() {
     return <SkeletonDashboard />;
   }
 
-  const isPositive = (summary?.total_gain_loss || 0) >= 0;
-  const totalAssets = (cryptoPortfolio?.assets.length || 0) + (stockPortfolio?.assets.length || 0);
+  // Apply live price updates if enabled
+  const displayCryptoPortfolio = isLiveEnabled && cryptoPortfolio
+    ? applyUpdatesToPortfolio(cryptoPortfolio)
+    : cryptoPortfolio;
+
+  const displayStockPortfolio = isLiveEnabled && stockPortfolio
+    ? applyUpdatesToPortfolio(stockPortfolio)
+    : stockPortfolio;
+
+  // Recalculate summary with live prices
+  const displaySummary = isLiveEnabled && summary ? {
+    ...summary,
+    crypto_value: displayCryptoPortfolio?.total_value || 0,
+    stock_value: displayStockPortfolio?.total_value || 0,
+    total_value: (displayCryptoPortfolio?.total_value || 0) + (displayStockPortfolio?.total_value || 0),
+    total_invested: (displayCryptoPortfolio?.total_invested || 0) + (displayStockPortfolio?.total_invested || 0),
+    total_gain_loss: (displayCryptoPortfolio?.total_gain_loss || 0) + (displayStockPortfolio?.total_gain_loss || 0),
+    total_gain_loss_percentage: ((displayCryptoPortfolio?.total_value || 0) + (displayStockPortfolio?.total_value || 0)) > 0
+      ? (((displayCryptoPortfolio?.total_gain_loss || 0) + (displayStockPortfolio?.total_gain_loss || 0)) /
+         ((displayCryptoPortfolio?.total_invested || 0) + (displayStockPortfolio?.total_invested || 0))) * 100
+      : 0,
+  } : summary;
+
+  const isPositive = (displaySummary?.total_gain_loss || 0) >= 0;
+  const totalAssets = (displayCryptoPortfolio?.assets.length || 0) + (displayStockPortfolio?.assets.length || 0);
 
   // Prepare data for charts
   const assetTypeData = [
-    { name: 'Crypto', value: summary?.crypto_value || 0, count: summary?.crypto_count || 0 },
-    { name: 'Stocks', value: summary?.stock_value || 0, count: summary?.stock_count || 0 },
+    { name: 'Crypto', value: displaySummary?.crypto_value || 0, count: displaySummary?.crypto_count || 0 },
+    { name: 'Stocks', value: displaySummary?.stock_value || 0, count: displaySummary?.stock_count || 0 },
   ].filter(item => item.value > 0);
 
   // Individual asset performance for bar chart
-  const allAssets = [
-    ...(cryptoPortfolio?.assets || []),
-    ...(stockPortfolio?.assets || []),
+  const displayAllAssets = [
+    ...(displayCryptoPortfolio?.assets || []),
+    ...(displayStockPortfolio?.assets || []),
   ];
 
-  const performanceData = allAssets
+  const performanceData = displayAllAssets
     .map(asset => ({
       name: asset.symbol,
       gainLoss: asset.gain_loss || 0,
@@ -93,15 +123,18 @@ export function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Title & Refresh Status */}
-        <div className="flex items-center justify-between mb-6">
+        {/* Page Title & Live Price Indicator */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-          {refreshing && (
-            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-700 px-4 py-2 rounded-lg shadow-sm">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              <span>Updating...</span>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {refreshing && (
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-700 px-4 py-2 rounded-lg shadow-sm">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <span>Updating...</span>
+              </div>
+            )}
+            <LivePriceIndicator showToggle={true} />
+          </div>
         </div>
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6">
@@ -116,7 +149,7 @@ export function Dashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Value</p>
                 <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2 transition-all duration-300">
-                  ${summary?.total_value.toFixed(2) || '0.00'}
+                  ${displaySummary?.total_value.toFixed(2) || '0.00'}
                 </p>
               </div>
               <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
@@ -130,10 +163,10 @@ export function Dashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Gain/Loss</p>
                 <p className={`text-3xl font-bold mt-2 transition-all duration-300 ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {isPositive ? '+' : ''}${summary?.total_gain_loss.toFixed(2) || '0.00'}
+                  {isPositive ? '+' : ''}${displaySummary?.total_gain_loss.toFixed(2) || '0.00'}
                 </p>
                 <p className={`text-sm font-semibold transition-all duration-300 ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {summary?.total_gain_loss_percentage.toFixed(2)}%
+                  {displaySummary?.total_gain_loss_percentage.toFixed(2)}%
                 </p>
               </div>
               <div className={`p-3 rounded-full transition-all duration-300 ${isPositive ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
@@ -154,9 +187,9 @@ export function Dashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Crypto Value</p>
                 <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-2 transition-all duration-300">
-                  ${summary?.crypto_value.toFixed(2) || '0.00'}
+                  ${displaySummary?.crypto_value.toFixed(2) || '0.00'}
                 </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 transition-all duration-300">{summary?.crypto_count || 0} assets</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 transition-all duration-300">{displaySummary?.crypto_count || 0} assets</p>
               </div>
               <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-full">
                 <PieChart className="h-8 w-8 text-purple-600 dark:text-purple-400" />
@@ -172,9 +205,9 @@ export function Dashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Stock Value</p>
                 <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400 mt-2 transition-all duration-300">
-                  ${summary?.stock_value.toFixed(2) || '0.00'}
+                  ${displaySummary?.stock_value.toFixed(2) || '0.00'}
                 </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 transition-all duration-300">{summary?.stock_count || 0} assets</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 transition-all duration-300">{displaySummary?.stock_count || 0} assets</p>
               </div>
               <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-full">
                 <PieChart className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
@@ -195,12 +228,12 @@ export function Dashboard() {
 
             {/* Top Performers */}
             <div className="mb-8">
-              <TopPerformers cryptoPortfolio={cryptoPortfolio} stockPortfolio={stockPortfolio} />
+              <TopPerformers cryptoPortfolio={displayCryptoPortfolio} stockPortfolio={displayStockPortfolio} />
             </div>
 
             {/* Portfolio Insights */}
             <div className="mb-8">
-              <PortfolioInsights cryptoPortfolio={cryptoPortfolio} stockPortfolio={stockPortfolio} summary={summary} />
+              <PortfolioInsightsWidget cryptoPortfolio={displayCryptoPortfolio} stockPortfolio={displayStockPortfolio} summary={displaySummary} />
             </div>
           </>
         )}

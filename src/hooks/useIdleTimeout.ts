@@ -30,13 +30,13 @@ export function useIdleTimeout({
       const warningDelay = idleTime - warningTime;
       warningTimeoutId.current = setTimeout(() => {
         onWarning();
-      }, warningDelay);
+      }, warningDelay) as unknown as number;
     }
 
     // Set idle timeout
     timeoutId.current = setTimeout(() => {
       onIdle();
-    }, idleTime);
+    }, idleTime) as unknown as number;
   };
 
   useEffect(() => {

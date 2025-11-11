@@ -1,12 +1,20 @@
-import { User, Bell, Shield, Download, Moon, Sun } from 'lucide-react';
+import { User, Bell, Shield, Download, Moon, Sun, Activity } from 'lucide-react';
 import { Navigation } from '../shared/Navigation';
 import { useDarkMode } from '../../contexts/DarkModeContext';
 import { useAuthStore } from '../../store/authStore';
+import { usePriceUpdates } from '../../contexts/PriceUpdateContext';
 import { useState } from 'react';
 
 export function Settings() {
   const { user } = useAuthStore();
   const { darkMode, toggleDarkMode } = useDarkMode();
+  const {
+    isLiveEnabled,
+    toggleLivePrices,
+    updateInterval,
+    setUpdateInterval,
+  } = usePriceUpdates();
+
   const [notifications, setNotifications] = useState({
     priceAlerts: true,
     weeklyReports: true,
@@ -136,6 +144,74 @@ export function Settings() {
                 }`}
               />
             </button>
+          </div>
+        </div>
+
+        {/* Live Price Settings */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <Activity className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Live Price Updates</h2>
+          </div>
+          <div className="space-y-6">
+            {/* Enable Live Prices */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-gray-900 dark:text-white">Enable Live Prices</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Automatically update asset prices in real-time</p>
+              </div>
+              <button
+                onClick={toggleLivePrices}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  isLiveEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    isLiveEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Update Frequency */}
+            <div>
+              <h3 className="font-medium text-gray-900 dark:text-white mb-3">Update Frequency</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Choose how often prices should update</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { value: 5000, label: '5 seconds', description: 'Very fast' },
+                  { value: 10000, label: '10 seconds', description: 'Fast' },
+                  { value: 30000, label: '30 seconds', description: 'Moderate' },
+                  { value: 60000, label: '1 minute', description: 'Slow' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setUpdateInterval(option.value)}
+                    disabled={!isLiveEnabled}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      updateInterval === option.value && isLiveEnabled
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    } ${
+                      !isLiveEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <p className="font-semibold text-gray-900 dark:text-white">{option.label}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{option.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Info Note */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                <strong>Note:</strong> Live prices are simulated for demonstration purposes. In a production environment, this would connect to real market data feeds.
+              </p>
+            </div>
           </div>
         </div>
 

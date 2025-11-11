@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BarChart3, Settings, Bell, LogOut, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Settings, Bell, LogOut, TrendingUp, History, Eye, Lightbulb } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 
 export function Navigation() {
@@ -14,7 +14,10 @@ export function Navigation() {
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/insights', label: 'Insights', icon: Lightbulb },
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+    { path: '/watchlist', label: 'Watchlist', icon: Eye },
+    { path: '/transactions', label: 'History', icon: History },
     { path: '/alerts', label: 'Alerts', icon: Bell },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];

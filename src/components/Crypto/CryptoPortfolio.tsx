@@ -1,9 +1,14 @@
-import { useEffect, useState, useMemo, Fragment } from 'react';
+import { useEffect, useState, useMemo, Fragment, useCallback } from 'react';
 import { apiService } from '../../services/api';
 import type { Portfolio } from '../../types';
-import { RefreshCw, Plus, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight, Search, Download, ArrowUpDown, List, LayoutGrid } from 'lucide-react';
+import { RefreshCw, Plus, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight, Search, Download, ArrowUpDown, List, LayoutGrid, Filter, X, Save, Upload } from 'lucide-react';
+import { usePriceUpdates, useRegisterAssets } from '../../contexts/PriceUpdateContext';
+import { LivePriceIndicator } from '../shared/LivePriceIndicator';
+import { PriceChangeIndicator } from '../shared/PriceChangeIndicator';
 import { AddAssetModal } from '../shared/AddAssetModal';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
+import { ImportModal } from '../shared/ImportModal';
+import { ExportModal } from '../shared/ExportModal';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useToast } from '../../contexts/ToastContext';
 import { SkeletonPortfolio } from '../shared/LoadingSkeleton';
@@ -12,8 +17,57 @@ import { Navigation } from '../shared/Navigation';
 
 const COLORS = ['#8b5cf6', '#ec4899', '#06b6d4', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#84cc16'];
 
-type SortField = 'symbol' | 'quantity' | 'value' | 'gainLoss';
+type SortField = 'symbol' | 'quantity' | 'value' | 'gainLoss' | 'purchaseDate';
 type SortDirection = 'asc' | 'desc';
+type QuickFilter = 'all' | 'gainers' | 'losers' | 'highValue';
+
+interface FilterState {
+  performance: 'all' | 'gainers' | 'losers' | 'breakEven';
+  minValue: string;
+  maxValue: string;
+  minQuantity: string;
+  maxQuantity: string;
+  startDate: string;
+  endDate: string;
+}
+
+interface FilterPreset {
+  name: string;
+  filters: FilterState;
+}
+
+const DEFAULT_FILTERS: FilterState = {
+  performance: 'all',
+  minValue: '',
+  maxValue: '',
+  minQuantity: '',
+  maxQuantity: '',
+  startDate: '',
+  endDate: '',
+};
+
+const PRESET_FILTERS: FilterPreset[] = [
+  {
+    name: 'My Winners',
+    filters: { ...DEFAULT_FILTERS, performance: 'gainers' },
+  },
+  {
+    name: 'Need Attention',
+    filters: { ...DEFAULT_FILTERS, performance: 'losers' },
+  },
+  {
+    name: 'Recent Purchases',
+    filters: {
+      ...DEFAULT_FILTERS,
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      endDate: new Date().toISOString().split('T')[0],
+    },
+  },
+  {
+    name: 'High Value',
+    filters: { ...DEFAULT_FILTERS, minValue: '1000' },
+  },
+];
 
 export function CryptoPortfolio() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -25,11 +79,70 @@ export function CryptoPortfolio() {
   const [assetToDelete, setAssetToDelete] = useState<string | null>(null);
   const [expandedAssets, setExpandedAssets] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('symbol');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
+  const [customPresets, setCustomPresets] = useState<FilterPreset[]>([]);
+  const [showSavePreset, setShowSavePreset] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const toast = useToast();
+  const { applyUpdatesToPortfolio, isLiveEnabled } = usePriceUpdates();
+
+  // Register assets for live updates
+  useRegisterAssets(portfolio?.assets || [], 'crypto');
+
+  // Load saved state from localStorage
+  useEffect(() => {
+    const savedFilters = localStorage.getItem('crypto-filters');
+    const savedPresets = localStorage.getItem('crypto-filter-presets');
+    const savedQuickFilter = localStorage.getItem('crypto-quick-filter');
+
+    if (savedFilters) {
+      try {
+        setFilters(JSON.parse(savedFilters));
+      } catch (e) {
+        console.error('Failed to parse saved filters', e);
+      }
+    }
+
+    if (savedPresets) {
+      try {
+        setCustomPresets(JSON.parse(savedPresets));
+      } catch (e) {
+        console.error('Failed to parse saved presets', e);
+      }
+    }
+
+    if (savedQuickFilter) {
+      setQuickFilter(savedQuickFilter as QuickFilter);
+    }
+  }, []);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Save filters to localStorage
+  useEffect(() => {
+    localStorage.setItem('crypto-filters', JSON.stringify(filters));
+  }, [filters]);
+
+  // Save quick filter to localStorage
+  useEffect(() => {
+    localStorage.setItem('crypto-quick-filter', quickFilter);
+  }, [quickFilter]);
 
   const toggleAssetExpansion = (assetId: string) => {
     setExpandedAssets(prev => {
@@ -111,12 +224,128 @@ export function CryptoPortfolio() {
     }
   };
 
-  const filteredAndSortedAssets = useMemo(() => {
-    if (!portfolio) return [];
+  const applyQuickFilter = useCallback((filter: QuickFilter) => {
+    setQuickFilter(filter);
+    switch (filter) {
+      case 'gainers':
+        setFilters({ ...DEFAULT_FILTERS, performance: 'gainers' });
+        break;
+      case 'losers':
+        setFilters({ ...DEFAULT_FILTERS, performance: 'losers' });
+        break;
+      case 'highValue':
+        setFilters({ ...DEFAULT_FILTERS, minValue: '1000' });
+        break;
+      default:
+        setFilters(DEFAULT_FILTERS);
+    }
+  }, []);
 
-    let filtered = portfolio.assets.filter(asset =>
-      asset.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+  const clearAllFilters = useCallback(() => {
+    setFilters(DEFAULT_FILTERS);
+    setQuickFilter('all');
+    setSearchQuery('');
+    setDebouncedSearchQuery('');
+  }, []);
+
+  const savePreset = useCallback(() => {
+    if (!presetName.trim()) {
+      toast.warning('Please enter a preset name');
+      return;
+    }
+
+    const newPreset: FilterPreset = {
+      name: presetName,
+      filters: { ...filters },
+    };
+
+    const updatedPresets = [...customPresets, newPreset];
+    setCustomPresets(updatedPresets);
+    localStorage.setItem('crypto-filter-presets', JSON.stringify(updatedPresets));
+    setShowSavePreset(false);
+    setPresetName('');
+    toast.success('Filter preset saved successfully');
+  }, [presetName, filters, customPresets, toast]);
+
+  const loadPreset = useCallback((preset: FilterPreset) => {
+    setFilters(preset.filters);
+    setQuickFilter('all');
+    toast.success(`Loaded preset: ${preset.name}`);
+  }, [toast]);
+
+  const deletePreset = useCallback((index: number) => {
+    const updatedPresets = customPresets.filter((_, i) => i !== index);
+    setCustomPresets(updatedPresets);
+    localStorage.setItem('crypto-filter-presets', JSON.stringify(updatedPresets));
+    toast.success('Preset deleted');
+  }, [customPresets, toast]);
+
+  const getActiveFilterSummary = useCallback(() => {
+    const summary: string[] = [];
+
+    if (filters.performance !== 'all') {
+      summary.push(`Performance: ${filters.performance}`);
+    }
+    if (filters.minValue) {
+      summary.push(`Min Value: $${filters.minValue}`);
+    }
+    if (filters.maxValue) {
+      summary.push(`Max Value: $${filters.maxValue}`);
+    }
+    if (filters.minQuantity) {
+      summary.push(`Min Quantity: ${filters.minQuantity}`);
+    }
+    if (filters.maxQuantity) {
+      summary.push(`Max Quantity: ${filters.maxQuantity}`);
+    }
+    if (filters.startDate) {
+      summary.push(`From: ${new Date(filters.startDate).toLocaleDateString()}`);
+    }
+    if (filters.endDate) {
+      summary.push(`To: ${new Date(filters.endDate).toLocaleDateString()}`);
+    }
+
+    return summary;
+  }, [filters]);
+
+  const filteredAndSortedAssets = useMemo(() => {
+    // Apply live price updates if enabled
+    const displayPortfolio = isLiveEnabled && portfolio
+      ? applyUpdatesToPortfolio(portfolio)
+      : portfolio;
+
+    if (!displayPortfolio) return [];
+
+    let filtered = displayPortfolio.assets.filter(asset => {
+      // Search filter
+      if (debouncedSearchQuery && !asset.symbol.toLowerCase().includes(debouncedSearchQuery.toLowerCase())) {
+        return false;
+      }
+
+      // Performance filter
+      if (filters.performance !== 'all') {
+        const gainLoss = asset.gain_loss || 0;
+        if (filters.performance === 'gainers' && gainLoss <= 0) return false;
+        if (filters.performance === 'losers' && gainLoss >= 0) return false;
+        if (filters.performance === 'breakEven' && gainLoss !== 0) return false;
+      }
+
+      // Value range filter
+      const currentValue = asset.current_value || 0;
+      if (filters.minValue && currentValue < parseFloat(filters.minValue)) return false;
+      if (filters.maxValue && currentValue > parseFloat(filters.maxValue)) return false;
+
+      // Quantity range filter
+      if (filters.minQuantity && asset.quantity < parseFloat(filters.minQuantity)) return false;
+      if (filters.maxQuantity && asset.quantity > parseFloat(filters.maxQuantity)) return false;
+
+      // Date range filter
+      const purchaseDate = new Date(asset.purchase_date);
+      if (filters.startDate && purchaseDate < new Date(filters.startDate)) return false;
+      if (filters.endDate && purchaseDate > new Date(filters.endDate + 'T23:59:59')) return false;
+
+      return true;
+    });
 
     const sorted = [...filtered].sort((a, b) => {
       let aVal, bVal;
@@ -138,6 +367,10 @@ export function CryptoPortfolio() {
           aVal = a.gain_loss || 0;
           bVal = b.gain_loss || 0;
           break;
+        case 'purchaseDate':
+          aVal = new Date(a.purchase_date).getTime();
+          bVal = new Date(b.purchase_date).getTime();
+          break;
         default:
           return 0;
       }
@@ -154,58 +387,64 @@ export function CryptoPortfolio() {
     });
 
     return sorted;
-  }, [portfolio, searchQuery, sortField, sortDirection]);
+  }, [portfolio, isLiveEnabled, applyUpdatesToPortfolio, debouncedSearchQuery, filters, sortField, sortDirection]);
 
-  const exportToCSV = () => {
-    if (!portfolio || portfolio.assets.length === 0) {
-      toast.warning('No assets to export');
-      return;
+  const handleImport = async (data: Array<{ symbol: string; quantity: number; purchasePrice: number; purchaseDate: string }>) => {
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: string[] = [];
+
+    for (const item of data) {
+      try {
+        await apiService.addAsset({
+          asset_type: 'crypto',
+          symbol: item.symbol,
+          quantity: item.quantity,
+          purchase_price: item.purchasePrice,
+          purchase_date: item.purchaseDate,
+        });
+        successCount++;
+      } catch (error: any) {
+        failedCount++;
+        errors.push(`${item.symbol}: ${error.message || 'Failed to import'}`);
+      }
     }
 
-    const headers = ['Symbol', 'Quantity', 'Purchase Price', 'Current Price', 'Current Value', 'Gain/Loss', 'Gain/Loss %', 'Purchase Date'];
-    const rows = portfolio.assets.map(asset => [
-      asset.symbol,
-      asset.quantity.toFixed(4),
-      asset.purchase_price.toFixed(2),
-      (asset.current_price || 0).toFixed(2),
-      (asset.current_value || 0).toFixed(2),
-      (asset.gain_loss || 0).toFixed(2),
-      (asset.gain_loss_percentage || 0).toFixed(2),
-      new Date(asset.purchase_date).toLocaleDateString()
-    ]);
+    // Reload portfolio after import
+    await loadPortfolio();
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
+    if (successCount > 0) {
+      toast.success(`Successfully imported ${successCount} asset(s)`);
+    }
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `crypto-portfolio-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    if (failedCount > 0) {
+      toast.error(`Failed to import ${failedCount} asset(s)`);
+    }
 
-    toast.success('Portfolio exported successfully');
+    if (errors.length > 0 && errors.length <= 5) {
+      errors.forEach(error => toast.error(error));
+    }
   };
 
   if (loading && !portfolio) {
     return <SkeletonPortfolio />;
   }
 
-  const isPositive = (portfolio?.total_gain_loss || 0) >= 0;
+  // Apply live price updates if enabled
+  const displayPortfolio = isLiveEnabled && portfolio
+    ? applyUpdatesToPortfolio(portfolio)
+    : portfolio;
+
+  const isPositive = (displayPortfolio?.total_gain_loss || 0) >= 0;
 
   // Prepare data for charts
-  const holdingsData = portfolio?.assets.map(asset => ({
+  const holdingsData = displayPortfolio?.assets.map(asset => ({
     name: asset.symbol,
     value: asset.current_value || 0,
-    percentage: ((asset.current_value || 0) / (portfolio.total_value || 1)) * 100,
+    percentage: ((asset.current_value || 0) / (displayPortfolio.total_value || 1)) * 100,
   })) || [];
 
-  const performanceData = portfolio?.assets.map(asset => ({
+  const performanceData = displayPortfolio?.assets.map(asset => ({
     name: asset.symbol,
     gainLoss: asset.gain_loss || 0,
     gainLossPercentage: asset.gain_loss_percentage || 0,
@@ -220,15 +459,18 @@ export function CryptoPortfolio() {
         {/* Page Header with Actions */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent mb-2">
-              Crypto Portfolio
-            </h1>
-            {refreshing && (
-              <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                <RefreshCw className="h-3 w-3 animate-spin" />
-                Updating...
-              </span>
-            )}
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent mb-2">
+                Crypto Portfolio
+              </h1>
+              {refreshing && (
+                <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  Updating...
+                </span>
+              )}
+            </div>
+            <LivePriceIndicator showToggle={true} />
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {/* View Toggle */}
@@ -249,7 +491,15 @@ export function CryptoPortfolio() {
               </button>
             </div>
             <button
-              onClick={exportToCSV}
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+              title="Import from CSV"
+            >
+              <Upload className="h-4 w-4" />
+              Import
+            </button>
+            <button
+              onClick={() => setIsExportModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
               title="Export to CSV"
             >
@@ -278,25 +528,25 @@ export function CryptoPortfolio() {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition-all">
             <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Total Value</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white transition-all duration-300">
-              ${portfolio?.total_value.toFixed(2) || '0.00'}
+              ${displayPortfolio?.total_value.toFixed(2) || '0.00'}
             </p>
-            <p className="text-sm text-gray-500 mt-1 transition-all duration-300">{portfolio?.assets.length || 0} assets</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 transition-all duration-300">{displayPortfolio?.assets.length || 0} assets</p>
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition-all">
             <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Total Invested</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white transition-all duration-300">
-              ${portfolio?.total_invested.toFixed(2) || '0.00'}
+              ${displayPortfolio?.total_invested.toFixed(2) || '0.00'}
             </p>
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition-all">
             <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Total Gain/Loss</p>
             <p className={`text-3xl font-bold transition-all duration-300 ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-              {isPositive ? '+' : ''}${portfolio?.total_gain_loss.toFixed(2) || '0.00'}
+              {isPositive ? '+' : ''}${displayPortfolio?.total_gain_loss.toFixed(2) || '0.00'}
             </p>
             <p className={`text-sm font-semibold transition-all duration-300 ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-              {portfolio?.total_gain_loss_percentage.toFixed(2)}%
+              {displayPortfolio?.total_gain_loss_percentage.toFixed(2)}%
             </p>
           </div>
         </div>
@@ -370,23 +620,306 @@ export function CryptoPortfolio() {
 
         {/* Assets Table */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+          {/* Header with Search and Filter Controls */}
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Your Crypto Assets</h2>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Your Crypto Assets</h2>
+                {portfolio && portfolio.assets.length > 0 && (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* Enhanced Search */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+                      <input
+                        type="text"
+                        placeholder="Search by symbol... (e.g., BTC)"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 pr-10 py-2 w-64 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Filter Toggle Button */}
+                    <button
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                        showFilters
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      <Filter className="h-4 w-4" />
+                      Filters
+                      {getActiveFilterSummary().length > 0 && (
+                        <span className="ml-1 px-2 py-0.5 text-xs bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 rounded-full">
+                          {getActiveFilterSummary().length}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Filter Chips */}
               {portfolio && portfolio.assets.length > 0 && (
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
-                  <input
-                    type="text"
-                    placeholder="Search by symbol..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                  />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => applyQuickFilter('all')}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      quickFilter === 'all'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => applyQuickFilter('gainers')}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      quickFilter === 'gainers'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300'
+                    }`}
+                  >
+                    Gainers
+                  </button>
+                  <button
+                    onClick={() => applyQuickFilter('losers')}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      quickFilter === 'losers'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300'
+                    }`}
+                  >
+                    Losers
+                  </button>
+                  <button
+                    onClick={() => applyQuickFilter('highValue')}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      quickFilter === 'highValue'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300'
+                    }`}
+                  >
+                    High Value (&gt;$1000)
+                  </button>
+                </div>
+              )}
+
+              {/* Results Summary */}
+              {portfolio && portfolio.assets.length > 0 && (
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Showing {filteredAndSortedAssets.length} of {portfolio.assets.length} assets
+                    </span>
+                    {getActiveFilterSummary().length > 0 && (
+                      <>
+                        <span className="text-sm text-gray-400 dark:text-gray-500">|</span>
+                        <span className="text-sm text-purple-600 dark:text-purple-400">
+                          Filtered by: {getActiveFilterSummary().join(', ')}
+                        </span>
+                        <button
+                          onClick={clearAllFilters}
+                          className="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 underline"
+                        >
+                          Clear all
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           </div>
+
+          {/* Advanced Filters Panel */}
+          {showFilters && portfolio && portfolio.assets.length > 0 && (
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Performance Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Performance
+                  </label>
+                  <select
+                    value={filters.performance}
+                    onChange={(e) => setFilters({ ...filters, performance: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="all">All</option>
+                    <option value="gainers">Gainers Only</option>
+                    <option value="losers">Losers Only</option>
+                    <option value="breakEven">Break Even</option>
+                  </select>
+                </div>
+
+                {/* Min Value */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Min Value ($)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={filters.minValue}
+                    onChange={(e) => setFilters({ ...filters, minValue: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+
+                {/* Max Value */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Max Value ($)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="No limit"
+                    value={filters.maxValue}
+                    onChange={(e) => setFilters({ ...filters, maxValue: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+
+                {/* Min Quantity */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Min Quantity
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    step="0.01"
+                    value={filters.minQuantity}
+                    onChange={(e) => setFilters({ ...filters, minQuantity: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+
+                {/* Max Quantity */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Max Quantity
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="No limit"
+                    step="0.01"
+                    value={filters.maxQuantity}
+                    onChange={(e) => setFilters({ ...filters, maxQuantity: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+
+                {/* Start Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Purchase Date From
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.startDate}
+                    onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+
+                {/* End Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Purchase Date To
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.endDate}
+                    onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Filter Presets */}
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Quick Presets
+                  </label>
+                  <button
+                    onClick={() => setShowSavePreset(!showSavePreset)}
+                    className="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 flex items-center gap-1"
+                  >
+                    <Save className="h-3 w-3" />
+                    Save Current
+                  </button>
+                </div>
+
+                {showSavePreset && (
+                  <div className="mb-3 flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Preset name"
+                      value={presetName}
+                      onChange={(e) => setPresetName(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    />
+                    <button
+                      onClick={savePreset}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm transition-colors"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSavePreset(false);
+                        setPresetName('');
+                      }}
+                      className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  {PRESET_FILTERS.map((preset, index) => (
+                    <button
+                      key={index}
+                      onClick={() => loadPreset(preset)}
+                      className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg text-sm transition-colors"
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                  {customPresets.map((preset, index) => (
+                    <div key={index} className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                      <button
+                        onClick={() => loadPreset(preset)}
+                        className="px-3 py-1.5 text-indigo-700 dark:text-indigo-300 text-sm hover:bg-indigo-200 dark:hover:bg-indigo-900/50 rounded-l-lg transition-colors"
+                      >
+                        {preset.name}
+                      </button>
+                      <button
+                        onClick={() => deletePreset(index)}
+                        className="px-2 py-1.5 text-indigo-700 dark:text-indigo-300 hover:text-red-600 dark:hover:text-red-400 rounded-r-lg transition-colors"
+                        title="Delete preset"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {portfolio && portfolio.assets.length > 0 ? (
             <>
@@ -489,8 +1022,12 @@ export function CryptoPortfolio() {
                             ${asset.purchase_price.toFixed(2)}
                             {hasMultiplePurchases && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">(avg)</span>}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-gray-600 dark:text-gray-400">
-                            ${asset.current_price?.toFixed(2) || '0.00'}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <PriceChangeIndicator
+                              symbol={asset.symbol}
+                              currentPrice={asset.current_price || asset.purchase_price}
+                              showIcon={true}
+                            />
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900 dark:text-white">
                             ${asset.current_value?.toFixed(2) || '0.00'}
@@ -723,6 +1260,28 @@ export function CryptoPortfolio() {
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         variant="danger"
+      />
+
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleImport}
+        assetType="crypto"
+      />
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        assets={filteredAndSortedAssets}
+        assetType="crypto"
+        portfolioTotals={{
+          totalValue: portfolio?.total_value || 0,
+          totalInvested: portfolio?.total_invested || 0,
+          totalGainLoss: portfolio?.total_gain_loss || 0,
+          totalGainLossPercentage: portfolio?.total_gain_loss_percentage || 0,
+        }}
       />
     </div>
   );
