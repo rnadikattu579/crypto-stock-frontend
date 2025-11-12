@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AuthResponse, Portfolio, PortfolioSummary, Asset, AssetCreate, ApiResponse } from '../types';
+import type { AuthResponse, Portfolio, PortfolioSummary, Asset, AssetCreate, ApiResponse, PortfolioHistory, TimePeriod } from '../types';
 
 class ApiService {
   private api: ReturnType<typeof axios.create>;
@@ -97,6 +97,29 @@ class ApiService {
     const response = await this.api.post<ApiResponse<any[]>>('/prices', {
       symbols,
       asset_type: assetType,
+    });
+    return response.data.data;
+  }
+
+  // Portfolio History endpoints
+  async getPortfolioHistory(
+    period: TimePeriod = '30D',
+    portfolioType: 'crypto' | 'stock' | 'combined' = 'combined',
+    includeBenchmarks: boolean = false
+  ): Promise<PortfolioHistory> {
+    const response = await this.api.get<ApiResponse<PortfolioHistory>>('/portfolio/history', {
+      params: {
+        period,
+        portfolio_type: portfolioType,
+        include_benchmarks: includeBenchmarks,
+      },
+    });
+    return response.data.data;
+  }
+
+  async createPortfolioSnapshot(portfolioType: 'crypto' | 'stock' | 'combined' = 'combined'): Promise<any> {
+    const response = await this.api.post<ApiResponse<any>>('/portfolio/history/snapshot', {
+      portfolio_type: portfolioType,
     });
     return response.data.data;
   }

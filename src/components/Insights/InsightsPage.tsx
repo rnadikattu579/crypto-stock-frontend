@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Lightbulb,
   Filter,
@@ -16,9 +16,11 @@ import type { Insight, PortfolioHealth, RiskAnalysis, InsightFilters, InsightCat
 import { calculatePortfolioHealth, analyzeRisk, generateInsights, getRiskColor, getRiskBgColor } from '../../utils/portfolioAnalysis';
 import { apiService } from '../../services/api';
 import { Navigation } from '../shared/Navigation';
+import { LivePriceIndicator } from '../shared/LivePriceIndicator';
 import { HealthScore } from './HealthScore';
 import { InsightCard } from './InsightCard';
 import { SkeletonDashboard } from '../shared/LoadingSkeleton';
+import { usePriceUpdates, useRegisterAssets } from '../../contexts/PriceUpdateContext';
 
 const STORAGE_KEY = 'portfolio-insights-dismissed';
 
@@ -35,6 +37,13 @@ export function InsightsPage() {
   const [dismissedInsights, setDismissedInsights] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Get live price update hooks
+  const { isLiveEnabled, applyUpdatesToPortfolio } = usePriceUpdates();
+
+  // Register assets for live updates
+  useRegisterAssets(cryptoPortfolio?.assets || [], 'crypto');
+  useRegisterAssets(stockPortfolio?.assets || [], 'stock');
 
   // Filters
   const [filters, setFilters] = useState<InsightFilters>({});
@@ -59,23 +68,52 @@ export function InsightsPage() {
     }
   }, []);
 
-  // Generate insights when data changes
-  useEffect(() => {
-    if (!summary) return;
+  // Apply live price updates to portfolios (memoized to prevent infinite loops)
+  const displayCryptoPortfolio = useMemo(() => {
+    return isLiveEnabled && cryptoPortfolio
+      ? applyUpdatesToPortfolio(cryptoPortfolio)
+      : cryptoPortfolio;
+  }, [isLiveEnabled, cryptoPortfolio, applyUpdatesToPortfolio]);
 
-    // Calculate health score
-    const healthData = calculatePortfolioHealth(cryptoPortfolio, stockPortfolio, summary);
+  const displayStockPortfolio = useMemo(() => {
+    return isLiveEnabled && stockPortfolio
+      ? applyUpdatesToPortfolio(stockPortfolio)
+      : stockPortfolio;
+  }, [isLiveEnabled, stockPortfolio, applyUpdatesToPortfolio]);
+
+  // Recalculate summary with live prices (memoized to prevent infinite loops)
+  const displaySummary = useMemo(() => {
+    return isLiveEnabled && summary ? {
+      ...summary,
+      crypto_value: displayCryptoPortfolio?.total_value || 0,
+      stock_value: displayStockPortfolio?.total_value || 0,
+      total_value: (displayCryptoPortfolio?.total_value || 0) + (displayStockPortfolio?.total_value || 0),
+      total_invested: (displayCryptoPortfolio?.total_invested || 0) + (displayStockPortfolio?.total_invested || 0),
+      total_gain_loss: (displayCryptoPortfolio?.total_gain_loss || 0) + (displayStockPortfolio?.total_gain_loss || 0),
+      total_gain_loss_percentage: ((displayCryptoPortfolio?.total_value || 0) + (displayStockPortfolio?.total_value || 0)) > 0
+        ? (((displayCryptoPortfolio?.total_gain_loss || 0) + (displayStockPortfolio?.total_gain_loss || 0)) /
+           ((displayCryptoPortfolio?.total_invested || 0) + (displayStockPortfolio?.total_invested || 0))) * 100
+        : 0,
+    } : summary;
+  }, [isLiveEnabled, summary, displayCryptoPortfolio, displayStockPortfolio]);
+
+  // Generate insights when data changes (using live updated data)
+  useEffect(() => {
+    if (!displaySummary) return;
+
+    // Calculate health score with live data
+    const healthData = calculatePortfolioHealth(displayCryptoPortfolio, displayStockPortfolio, displaySummary);
     setHealth(healthData);
 
-    // Analyze risk
-    const risk = analyzeRisk(cryptoPortfolio, stockPortfolio, summary);
+    // Analyze risk with live data
+    const risk = analyzeRisk(displayCryptoPortfolio, displayStockPortfolio, displaySummary);
     setRiskAnalysis(risk);
 
-    // Generate insights
+    // Generate insights with live data
     const generatedInsights = generateInsights(
-      cryptoPortfolio,
-      stockPortfolio,
-      summary,
+      displayCryptoPortfolio,
+      displayStockPortfolio,
+      displaySummary,
       risk,
       dismissedInsights
     );
@@ -85,7 +123,7 @@ export function InsightsPage() {
     generatedInsights.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
 
     setInsights(generatedInsights);
-  }, [cryptoPortfolio, stockPortfolio, summary, dismissedInsights]);
+  }, [displayCryptoPortfolio, displayStockPortfolio, displaySummary, dismissedInsights, isLiveEnabled]);
 
   // Apply filters
   useEffect(() => {
@@ -221,6 +259,7 @@ export function InsightsPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <LivePriceIndicator showToggle={false} />
             <button
               onClick={() => loadData(true)}
               disabled={refreshing}

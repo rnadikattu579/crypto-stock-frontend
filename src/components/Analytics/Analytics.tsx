@@ -16,8 +16,10 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import { Navigation } from '../shared/Navigation';
+import { LivePriceIndicator } from '../shared/LivePriceIndicator';
 import { apiService } from '../../services/api';
-import type { Portfolio } from '../../types';
+import type { Portfolio, TimePeriod, HistoricalDataPoint as APIHistoricalDataPoint } from '../../types';
+import { usePriceUpdates, useRegisterAssets } from '../../contexts/PriceUpdateContext';
 import {
   Line,
   Area,
@@ -35,13 +37,9 @@ import {
   ComposedChart,
 } from 'recharts';
 
-// Types for time periods
-type TimePeriod = '24H' | '7D' | '30D' | '90D' | '1Y' | 'ALL';
-
-// Interface for historical data point
-interface HistoricalDataPoint {
-  date: string;
-  value: number;
+// Interface for chart data point (extends API type with additional fields)
+interface ChartDataPoint extends APIHistoricalDataPoint {
+  value: number;  // Alias for portfolio_value for chart compatibility
   btcValue?: number;
   marketValue?: number;
 }
@@ -92,14 +90,27 @@ const CustomTooltip = ({ active, payload, label, formatter }: any) => {
 export function Analytics() {
   const [cryptoPortfolio, setCryptoPortfolio] = useState<Portfolio | null>(null);
   const [stockPortfolio, setStockPortfolio] = useState<Portfolio | null>(null);
+  const [historicalData, setHistoricalData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('30D');
   const [sortField, setSortField] = useState<'symbol' | 'value' | 'gainLoss' | 'weight'>('value');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
+  // Get live price update hooks
+  const { isLiveEnabled, applyUpdatesToPortfolio } = usePriceUpdates();
+
+  // Register assets for live updates
+  useRegisterAssets(cryptoPortfolio?.assets || [], 'crypto');
+  useRegisterAssets(stockPortfolio?.assets || [], 'stock');
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // Load historical data when period changes
+  useEffect(() => {
+    loadHistoricalData();
+  }, [selectedPeriod]);
 
   const loadData = async () => {
     try {
@@ -116,66 +127,47 @@ export function Analytics() {
     }
   };
 
-  // Combine all assets
-  const allAssets = useMemo(() => [
-    ...(cryptoPortfolio?.assets || []),
-    ...(stockPortfolio?.assets || []),
-  ], [cryptoPortfolio, stockPortfolio]);
+  const loadHistoricalData = async () => {
+    try {
+      const history = await apiService.getPortfolioHistory(selectedPeriod, 'combined', false);
 
-  // Calculate core metrics
-  const totalInvested = (cryptoPortfolio?.total_invested || 0) + (stockPortfolio?.total_invested || 0);
-  const totalValue = (cryptoPortfolio?.total_value || 0) + (stockPortfolio?.total_value || 0);
+      // Transform API data to chart format
+      const chartData: ChartDataPoint[] = history.data_points.map(point => ({
+        ...point,
+        value: point.portfolio_value,  // Alias for compatibility
+        // Add simulated BTC and market benchmarks (optional - can be removed)
+        btcValue: point.portfolio_value * 1.2,  // Simulated BTC performance
+        marketValue: point.portfolio_value * 1.05,  // Simulated S&P500 performance
+      }));
+
+      setHistoricalData(chartData);
+    } catch (err) {
+      console.error('Failed to load historical data', err);
+      // Fall back to empty array on error
+      setHistoricalData([]);
+    }
+  };
+
+  // Apply live price updates to portfolios
+  const displayCryptoPortfolio = isLiveEnabled && cryptoPortfolio
+    ? applyUpdatesToPortfolio(cryptoPortfolio)
+    : cryptoPortfolio;
+
+  const displayStockPortfolio = isLiveEnabled && stockPortfolio
+    ? applyUpdatesToPortfolio(stockPortfolio)
+    : stockPortfolio;
+
+  // Combine all assets with live updates
+  const allAssets = useMemo(() => [
+    ...(displayCryptoPortfolio?.assets || []),
+    ...(displayStockPortfolio?.assets || []),
+  ], [displayCryptoPortfolio, displayStockPortfolio]);
+
+  // Calculate core metrics with live updates
+  const totalInvested = (displayCryptoPortfolio?.total_invested || 0) + (displayStockPortfolio?.total_invested || 0);
+  const totalValue = (displayCryptoPortfolio?.total_value || 0) + (displayStockPortfolio?.total_value || 0);
   const totalGainLoss = totalValue - totalInvested;
   const totalGainLossPercentage = totalInvested > 0 ? ((totalGainLoss / totalInvested) * 100) : 0;
-
-  // Generate historical data based on selected period
-  const historicalData = useMemo((): HistoricalDataPoint[] => {
-    const days = {
-      '24H': 1,
-      '7D': 7,
-      '30D': 30,
-      '90D': 90,
-      '1Y': 365,
-      'ALL': 730, // 2 years for "ALL"
-    }[selectedPeriod];
-
-    const dataPoints = selectedPeriod === '24H' ? 24 : Math.min(days, 100);
-    const interval = days / dataPoints;
-
-    return Array.from({ length: dataPoints }, (_, i) => {
-      const daysAgo = days - (i * interval);
-      const date = new Date();
-      date.setDate(date.getDate() - daysAgo);
-
-      // Generate realistic portfolio growth with volatility
-      const progress = i / dataPoints;
-      const trend = totalInvested * (1 + (totalGainLossPercentage / 100) * progress);
-      const volatility = totalInvested * 0.05 * Math.sin(i * 0.5) * (1 - progress * 0.3);
-      const randomNoise = (Math.random() - 0.5) * totalInvested * 0.02;
-      const value = Math.max(totalInvested * 0.8, trend + volatility + randomNoise);
-
-      // BTC comparison (assume BTC grew 150% over the period with high volatility)
-      const btcGrowth = 1.5;
-      const btcTrend = totalInvested * (1 + (btcGrowth - 1) * progress);
-      const btcVolatility = totalInvested * 0.08 * Math.sin(i * 0.7);
-      const btcValue = Math.max(totalInvested * 0.7, btcTrend + btcVolatility + randomNoise * 1.5);
-
-      // Market comparison (assume S&P 500 grew 20% over the period with low volatility)
-      const marketGrowth = 0.2;
-      const marketTrend = totalInvested * (1 + marketGrowth * progress);
-      const marketVolatility = totalInvested * 0.02 * Math.sin(i * 0.3);
-      const marketValue = Math.max(totalInvested * 0.95, marketTrend + marketVolatility);
-
-      return {
-        date: selectedPeriod === '24H'
-          ? date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-          : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        value,
-        btcValue,
-        marketValue,
-      };
-    });
-  }, [selectedPeriod, totalInvested, totalGainLossPercentage]);
 
   // Calculate change for selected period
   const periodChange = useMemo(() => {
@@ -185,7 +177,7 @@ export function Analytics() {
     return first > 0 ? ((last - first) / first) * 100 : 0;
   }, [historicalData]);
 
-  // Asset performance data with enhanced metrics
+  // Asset performance data with enhanced metrics (including live updates)
   const assetPerformanceData = useMemo((): AssetPerformanceData[] => {
     return allAssets.map(asset => {
       const invested = asset.quantity * asset.purchase_price;
@@ -212,7 +204,7 @@ export function Analytics() {
         portfolioWeight,
       };
     });
-  }, [allAssets, totalValue]);
+  }, [allAssets, totalValue, isLiveEnabled]);
 
   // Sorted asset performance data
   const sortedAssetData = useMemo(() => {
@@ -259,15 +251,15 @@ export function Analytics() {
     }));
   }, [sortedAssetData]);
 
-  // Asset type breakdown (crypto vs stocks)
+  // Asset type breakdown (crypto vs stocks) with live updates
   const assetTypeData = useMemo(() => {
-    const cryptoValue = cryptoPortfolio?.total_value || 0;
-    const stockValue = stockPortfolio?.total_value || 0;
+    const cryptoValue = displayCryptoPortfolio?.total_value || 0;
+    const stockValue = displayStockPortfolio?.total_value || 0;
     return [
       { name: 'Crypto', value: cryptoValue, percentage: totalValue > 0 ? (cryptoValue / totalValue) * 100 : 0 },
       { name: 'Stocks', value: stockValue, percentage: totalValue > 0 ? (stockValue / totalValue) * 100 : 0 },
     ];
-  }, [cryptoPortfolio, stockPortfolio, totalValue]);
+  }, [displayCryptoPortfolio, displayStockPortfolio, totalValue, isLiveEnabled]);
 
   // Performance by asset (bar chart)
   const assetBarChartData = useMemo(() => {
@@ -424,7 +416,10 @@ export function Analytics() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header with Actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Portfolio Analytics</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Portfolio Analytics</h1>
+            <LivePriceIndicator showToggle={false} />
+          </div>
           <div className="flex gap-3">
             <button
               onClick={printReport}
@@ -543,7 +538,7 @@ export function Analytics() {
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Total Assets</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{assetPerformanceData.length}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {(cryptoPortfolio?.assets.length || 0)} crypto, {(stockPortfolio?.assets.length || 0)} stocks
+                {(displayCryptoPortfolio?.assets.length || 0)} crypto, {(displayStockPortfolio?.assets.length || 0)} stocks
               </p>
             </div>
           </div>

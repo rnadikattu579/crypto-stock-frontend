@@ -86,3 +86,28 @@ export interface ApiError {
   error: string;
   detail?: string;
 }
+
+// Portfolio History Types
+export type TimePeriod = '24H' | '7D' | '30D' | '90D' | '1Y' | 'ALL';
+
+export interface HistoricalDataPoint {
+  date: string;
+  timestamp: string;
+  portfolio_value: number;
+  crypto_value?: number;
+  stock_value?: number;
+  invested_value?: number;
+  gain_loss?: number;
+  gain_loss_percentage?: number;
+}
+
+export interface PortfolioHistory {
+  user_id: string;
+  period: TimePeriod;
+  start_date: string;
+  end_date: string;
+  data_points: HistoricalDataPoint[];
+  current_value: number;
+  period_change: number;
+  period_change_percentage: number;
+}
