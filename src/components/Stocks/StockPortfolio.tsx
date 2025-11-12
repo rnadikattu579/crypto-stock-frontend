@@ -175,7 +175,11 @@ export function StockPortfolio() {
         setRefreshing(true);
       }
       const data = await apiService.getStockPortfolio();
-      setPortfolio(data);
+
+      // Use requestAnimationFrame to batch the state update and prevent flicker
+      requestAnimationFrame(() => {
+        setPortfolio(data);
+      });
     } catch (err) {
       console.error('Failed to load stock portfolio', err);
       if (!isAutoRefresh) {

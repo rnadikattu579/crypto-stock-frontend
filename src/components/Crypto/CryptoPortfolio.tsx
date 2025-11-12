@@ -175,7 +175,11 @@ export function CryptoPortfolio() {
         setRefreshing(true);
       }
       const data = await apiService.getCryptoPortfolio();
-      setPortfolio(data);
+
+      // Use requestAnimationFrame to batch the state update and prevent flicker
+      requestAnimationFrame(() => {
+        setPortfolio(data);
+      });
     } catch (err) {
       console.error('Failed to load crypto portfolio', err);
       if (!isAutoRefresh) {
