@@ -1,5 +1,22 @@
 import axios from 'axios';
-import type { AuthResponse, Portfolio, PortfolioSummary, Asset, AssetCreate, ApiResponse, PortfolioHistory, TimePeriod } from '../types';
+import type {
+  AuthResponse,
+  Portfolio,
+  PortfolioSummary,
+  Asset,
+  AssetCreate,
+  ApiResponse,
+  PortfolioHistory,
+  TimePeriod,
+  Transaction,
+  TransactionCreate,
+  TransactionUpdate,
+  TransactionHistory,
+  CostBasisCalculation,
+  CostBasisMethod,
+  AssetType,
+  TransactionType
+} from '../types';
 
 class ApiService {
   private api: ReturnType<typeof axios.create>;
@@ -120,6 +137,60 @@ class ApiService {
   async createPortfolioSnapshot(portfolioType: 'crypto' | 'stock' | 'combined' = 'combined'): Promise<any> {
     const response = await this.api.post<ApiResponse<any>>('/portfolio/history/snapshot', {
       portfolio_type: portfolioType,
+    });
+    return response.data.data;
+  }
+
+  // Transaction endpoints
+  async getTransactions(filters?: {
+    asset_id?: string;
+    asset_type?: AssetType;
+    transaction_type?: TransactionType;
+    start_date?: string;
+    end_date?: string;
+    limit?: number;
+  }): Promise<{ transactions: Transaction[]; count: number }> {
+    const response = await this.api.get<ApiResponse<{ transactions: Transaction[]; count: number }>>('/transactions', {
+      params: filters,
+    });
+    return response.data.data;
+  }
+
+  async getTransaction(transactionId: string): Promise<Transaction> {
+    const response = await this.api.get<ApiResponse<Transaction>>(`/transactions/${transactionId}`);
+    return response.data.data;
+  }
+
+  async createTransaction(transaction: TransactionCreate): Promise<Transaction> {
+    const response = await this.api.post<ApiResponse<Transaction>>('/transactions', transaction);
+    return response.data.data;
+  }
+
+  async updateTransaction(transactionId: string, updates: TransactionUpdate): Promise<Transaction> {
+    const response = await this.api.put<ApiResponse<Transaction>>(`/transactions/${transactionId}`, updates);
+    return response.data.data;
+  }
+
+  async deleteTransaction(transactionId: string): Promise<void> {
+    await this.api.delete(`/transactions/${transactionId}`);
+  }
+
+  async getTransactionHistory(filters?: {
+    asset_id?: string;
+    asset_type?: AssetType;
+  }): Promise<TransactionHistory> {
+    const response = await this.api.get<ApiResponse<TransactionHistory>>('/transactions/history', {
+      params: filters,
+    });
+    return response.data.data;
+  }
+
+  async getCostBasis(assetId: string, method: CostBasisMethod = 'fifo'): Promise<CostBasisCalculation> {
+    const response = await this.api.get<ApiResponse<CostBasisCalculation>>('/transactions/cost-basis', {
+      params: {
+        asset_id: assetId,
+        method,
+      },
     });
     return response.data.data;
   }

@@ -111,3 +111,82 @@ export interface PortfolioHistory {
   period_change: number;
   period_change_percentage: number;
 }
+
+// Transaction Types
+export const TransactionType = {
+  BUY: 'buy',
+  SELL: 'sell',
+  TRANSFER_IN: 'transfer_in',
+  TRANSFER_OUT: 'transfer_out',
+} as const;
+
+export type TransactionType = typeof TransactionType[keyof typeof TransactionType];
+
+export const CostBasisMethod = {
+  FIFO: 'fifo',
+  LIFO: 'lifo',
+  AVERAGE: 'average',
+} as const;
+
+export type CostBasisMethod = typeof CostBasisMethod[keyof typeof CostBasisMethod];
+
+export interface Transaction {
+  transaction_id: string;
+  user_id: string;
+  asset_id: string;
+  symbol: string;
+  asset_type: AssetType;
+  transaction_type: TransactionType;
+  quantity: number;
+  price: number;
+  total_value: number;
+  fees: number;
+  notes?: string;
+  transaction_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TransactionCreate {
+  asset_id: string;
+  symbol: string;
+  asset_type: AssetType;
+  transaction_type: TransactionType;
+  quantity: number;
+  price: number;
+  fees?: number;
+  notes?: string;
+  transaction_date: string;
+}
+
+export interface TransactionUpdate {
+  quantity?: number;
+  price?: number;
+  fees?: number;
+  notes?: string;
+  transaction_date?: string;
+}
+
+export interface TransactionHistory {
+  transactions: Transaction[];
+  total_count: number;
+  total_bought: number;
+  total_sold: number;
+  realized_gains: number;
+  unrealized_gains: number;
+}
+
+export interface CostBasisCalculation {
+  asset_id: string;
+  symbol: string;
+  total_quantity: number;
+  total_cost: number;
+  average_cost_per_unit: number;
+  method: CostBasisMethod;
+  remaining_lots: Array<{
+    date: string;
+    quantity: number;
+    price: number;
+    total_cost: number;
+  }>;
+}
