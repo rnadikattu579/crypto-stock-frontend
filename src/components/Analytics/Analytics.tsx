@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Navigation } from '../shared/Navigation';
 import { LivePriceIndicator } from '../shared/LivePriceIndicator';
+import { AdvancedMetrics } from './AdvancedMetrics';
 import { apiService } from '../../services/api';
 import type { Portfolio, TimePeriod, HistoricalDataPoint as APIHistoricalDataPoint } from '../../types';
 import { usePriceUpdates, useRegisterAssets } from '../../contexts/PriceUpdateContext';
@@ -413,42 +414,44 @@ export function Analytics() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <Navigation />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Header with Actions */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Portfolio Analytics</h1>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Portfolio Analytics</h1>
             <LivePriceIndicator showToggle={false} />
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
             <button
               onClick={printReport}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-md border border-gray-200 dark:border-gray-700"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-md border border-gray-200 dark:border-gray-700"
             >
-              <Printer className="h-5 w-5" />
-              Print
+              <Printer className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Print</span>
             </button>
             <button
               onClick={exportToCSV}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md"
             >
-              <Download className="h-5 w-5" />
-              Export CSV
+              <Download className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="text-sm sm:text-base">Export</span>
             </button>
           </div>
         </div>
 
         {/* Time Period Selector */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mb-8">
-          <div className="flex items-center gap-2 overflow-x-auto">
-            <Calendar className="h-5 w-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-shrink-0">Time Period:</span>
-            <div className="flex gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 dark:text-gray-400" />
+              <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Time Period:</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 scrollbar-hide">
               {(['24H', '7D', '30D', '90D', '1Y', 'ALL'] as TimePeriod[]).map(period => (
                 <button
                   key={period}
                   onClick={() => setSelectedPeriod(period)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                     selectedPeriod === period
                       ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -590,6 +593,11 @@ export function Analytics() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Advanced Metrics Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8">
+          <AdvancedMetrics />
         </div>
 
         {/* Portfolio Performance Over Time with Comparison */}

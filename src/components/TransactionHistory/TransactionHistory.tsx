@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Navigation } from '../shared/Navigation';
 import { apiService } from '../../services/api';
-import { Transaction } from '../../types';
-import { toast } from 'react-hot-toast';
+import type { Transaction } from '../../types';
+import { useToast } from '../../contexts/ToastContext';
+import { TransactionModal } from './TransactionModal';
 import {
   Download,
   Filter,
@@ -14,9 +15,9 @@ import {
   ArrowUpDown,
   X,
   FileText,
+  Trash2,
   Plus,
-  Edit,
-  Trash2
+  Edit
 } from 'lucide-react';
 
 type SortField = 'date' | 'value' | 'symbol';
@@ -35,6 +36,10 @@ export function TransactionHistory() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  const toast = useToast();
 
   // Load transactions from API
   useEffect(() => {
@@ -230,12 +235,22 @@ export function TransactionHistory() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Transaction History</h1>
           <div className="flex gap-2">
             <button
+              onClick={() => {
+                setEditingTransaction(null);
+                setShowModal(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-emerald-700 transition-all shadow-md"
+            >
+              <Plus className="h-5 w-5" />
+              Add Transaction
+            </button>
+            <button
               onClick={exportToCSV}
               disabled={filteredAndSortedTransactions.length === 0}
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
             >
               <Download className="h-5 w-5" />
-              Export to CSV
+              Export
             </button>
           </div>
         </div>
@@ -532,7 +547,7 @@ export function TransactionHistory() {
                   <div>
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">{transaction.symbol}</h3>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       transaction.transaction_type === 'buy'
                         ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
@@ -546,8 +561,17 @@ export function TransactionHistory() {
                       {transaction.transaction_type.toUpperCase()}
                     </span>
                     <button
+                      onClick={() => {
+                        setEditingTransaction(transaction);
+                        setShowModal(true);
+                      }}
+                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button
                       onClick={() => deleteTransaction(transaction.transaction_id)}
-                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -609,6 +633,17 @@ export function TransactionHistory() {
           </div>
         )}
       </main>
+
+      {/* Transaction Modal */}
+      <TransactionModal
+        isOpen={showModal}
+        onClose={() => {
+          setShowModal(false);
+          setEditingTransaction(null);
+        }}
+        onSuccess={loadTransactions}
+        transaction={editingTransaction}
+      />
     </div>
   );
 }

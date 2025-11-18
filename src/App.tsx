@@ -20,6 +20,8 @@ import { Alerts } from './components/Alerts/Alerts';
 import { TransactionHistory } from './components/TransactionHistory/TransactionHistory';
 import { Watchlist } from './components/Watchlist/Watchlist';
 import { InsightsPage } from './components/Insights/InsightsPage';
+import { TaxReports } from './components/TaxReports/TaxReports';
+import { Rebalancing } from './components/Rebalancing/Rebalancing';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -157,6 +159,22 @@ function App() {
             element={
               <PrivateRoute>
                 <InsightsPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/tax"
+            element={
+              <PrivateRoute>
+                <TaxReports />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/rebalance"
+            element={
+              <PrivateRoute>
+                <Rebalancing />
               </PrivateRoute>
             }
           />

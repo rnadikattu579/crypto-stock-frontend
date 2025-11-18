@@ -15,7 +15,17 @@ import type {
   CostBasisCalculation,
   CostBasisMethod,
   AssetType,
-  TransactionType
+  TransactionType,
+  TaxSummary,
+  Form8949Entry,
+  UnrealizedGains,
+  TaxLossHarvestingOpportunity,
+  TargetAllocation,
+  RebalanceCalculation,
+  PortfolioDrift,
+  MetricsResponse,
+  BenchmarkResponse,
+  RiskAnalysis
 } from '../types';
 
 class ApiService {
@@ -192,6 +202,108 @@ class ApiService {
         method,
       },
     });
+    return response.data.data;
+  }
+
+  // Tax endpoints
+  async getTaxSummary(year?: number): Promise<TaxSummary> {
+    const response = await this.api.get<ApiResponse<TaxSummary>>('/tax/summary', {
+      params: year ? { year } : undefined,
+    });
+    return response.data.data;
+  }
+
+  async getForm8949(year?: number): Promise<{ tax_year: number; entries: Form8949Entry[] }> {
+    const response = await this.api.get<ApiResponse<{ tax_year: number; entries: Form8949Entry[] }>>('/tax/form-8949', {
+      params: year ? { year } : undefined,
+    });
+    return response.data.data;
+  }
+
+  async getUnrealizedGains(): Promise<UnrealizedGains> {
+    const response = await this.api.get<ApiResponse<UnrealizedGains>>('/tax/unrealized');
+    return response.data.data;
+  }
+
+  async getTaxLossHarvesting(): Promise<{
+    opportunities: TaxLossHarvestingOpportunity[];
+    total_potential_loss: number;
+  }> {
+    const response = await this.api.get<ApiResponse<{
+      opportunities: TaxLossHarvestingOpportunity[];
+      total_potential_loss: number;
+    }>>('/tax/harvesting');
+    return response.data.data;
+  }
+
+  // Rebalancing endpoints
+  async getTargetAllocations(): Promise<{
+    targets: TargetAllocation[];
+    total_percentage: number;
+    is_valid: boolean;
+  }> {
+    const response = await this.api.get<ApiResponse<{
+      targets: TargetAllocation[];
+      total_percentage: number;
+      is_valid: boolean;
+    }>>('/rebalance/targets');
+    return response.data.data;
+  }
+
+  async setTargetAllocation(
+    asset_type: string,
+    target_percentage: number,
+    symbol?: string,
+    category?: string
+  ): Promise<TargetAllocation> {
+    const response = await this.api.post<ApiResponse<TargetAllocation>>('/rebalance/targets', {
+      asset_type,
+      target_percentage,
+      symbol,
+      category
+    });
+    return response.data.data;
+  }
+
+  async deleteTargetAllocation(allocationId: string): Promise<void> {
+    await this.api.delete(`/rebalance/targets/${allocationId}`);
+  }
+
+  async calculateRebalance(additionalInvestment: number = 0): Promise<RebalanceCalculation> {
+    const response = await this.api.get<ApiResponse<RebalanceCalculation>>('/rebalance/calculate', {
+      params: additionalInvestment ? { additional_investment: additionalInvestment } : undefined
+    });
+    return response.data.data;
+  }
+
+  async getPortfolioDrift(): Promise<PortfolioDrift> {
+    const response = await this.api.get<ApiResponse<PortfolioDrift>>('/rebalance/drift');
+    return response.data.data;
+  }
+
+  // Advanced Analytics endpoints
+  async getAdvancedMetrics(periodDays: number = 365): Promise<MetricsResponse> {
+    const response = await this.api.get<ApiResponse<MetricsResponse>>('/analytics/metrics', {
+      params: { period: periodDays }
+    });
+    return response.data.data;
+  }
+
+  async getBenchmarkComparison(
+    benchmarks: string[] = ['SP500', 'BTC'],
+    periodDays: number = 365
+  ): Promise<BenchmarkResponse> {
+    const response = await this.api.get<ApiResponse<BenchmarkResponse>>('/analytics/benchmarks', {
+      params: {
+        benchmarks: benchmarks.join(','),
+        period: periodDays
+      }
+    });
+    return response.data.data;
+  }
+
+  async getRiskAnalysis(): Promise<RiskAnalysis> {
+    const response = await this.api.get<ApiResponse<RiskAnalysis>>('/analytics/risk');
     return response.data.data;
   }
 }
